@@ -7,38 +7,40 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"pkg.agungdp.dev/candi/candishared"
 	"pkg.agungdp.dev/candi/codebase/factory"
 	"pkg.agungdp.dev/candi/codebase/factory/types"
 	"pkg.agungdp.dev/candi/logger"
 	"pkg.agungdp.dev/candi/tracer"
 )
 
+type handlerType struct {
+	handlerFunc   types.WorkerHandlerFunc
+	errorHandlers []types.WorkerErrorHandler
+}
+
 type workerEngine struct {
 	ctx           context.Context
 	ctxCancelFunc func()
 
-	shutdown chan struct{}
-	client   *pubsub.Client
+	semaphore map[string]chan struct{}
+	shutdown  chan struct{}
+	client    *pubsub.Client
 
 	subscribers map[string]*pubsub.Subscription
-	handlers    map[string]types.WorkerHandlerFunc
+	handlers    map[string]handlerType
 }
 
 // NewPubSubWorker create new gcp pubsub consumer, throw panic if error happened
-// Please set env GOOGLE_APPLICATION_CREDENTIALS=[path to your gcp credentials] for implisit load gcp credential (https://cloud.google.com/docs/authentication/production)
-func NewPubSubWorker(service factory.ServiceFactory, gcpProjectName, subscriberID string) factory.AppServerFactory {
+func NewPubSubWorker(service factory.ServiceFactory, client *pubsub.Client, subscriberID string) factory.AppServerFactory {
 	worker := new(workerEngine)
 	worker.ctx, worker.ctxCancelFunc = context.WithCancel(context.Background())
 
-	var err error
-	worker.client, err = pubsub.NewClient(worker.ctx, gcpProjectName)
-	if err != nil {
-		panic(err)
-	}
-
+	worker.client = client
 	worker.shutdown = make(chan struct{})
 	worker.subscribers = make(map[string]*pubsub.Subscription)
-	worker.handlers = make(map[string]types.WorkerHandlerFunc)
+	worker.handlers = make(map[string]handlerType)
+	worker.semaphore = make(map[string]chan struct{})
 
 	for _, m := range service.GetModules() {
 		if h := m.WorkerHandler(GoogleCloudPubSub); h != nil {
@@ -46,48 +48,31 @@ func NewPubSubWorker(service factory.ServiceFactory, gcpProjectName, subscriberI
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
 				topic := worker.createTopic(handler.Pattern)
-				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID+handler.Pattern, topic)
+				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID+"_"+handler.Pattern, topic)
 
 				logger.LogYellow(fmt.Sprintf(`[GCPPUBSUB-CONSUMER] (topic): %-15s  --> (module): "%s"`, `"`+handler.Pattern+`"`, m.Name()))
-				worker.handlers[handler.Pattern] = handler.HandlerFunc
+				worker.handlers[handler.Pattern] = handlerType{
+					handlerFunc: handler.HandlerFunc, errorHandlers: handler.ErrorHandler,
+				}
+				worker.semaphore[handler.Pattern] = make(chan struct{}, 1)
 			}
 		}
 	}
 
-	fmt.Printf("\x1b[34;1m⇨ GCP PubSub consumer running with %d topics. Project ID: %s\x1b[0m\n\n",
-		len(worker.handlers), gcpProjectName)
+	fmt.Printf("\x1b[34;1m⇨ GCP PubSub consumer running with %d topics. Subscriber ID: %s\x1b[0m\n\n",
+		len(worker.handlers), subscriberID)
 
 	return worker
 }
 
 func (w *workerEngine) Serve() {
-	ch := make(chan struct {
-		message *pubsub.Message
-		topic   string
-	})
-	defer close(ch)
-
 	for topic, subs := range w.subscribers {
 		go func(sub *pubsub.Subscription, topic string) {
-			sub.Receive(w.ctx, func(ctx context.Context, msg *pubsub.Message) {
-				ch <- struct {
-					message *pubsub.Message
-					topic   string
-				}{
-					message: msg, topic: topic,
-				}
-			})
+			sub.Receive(w.ctx, func(ctx context.Context, msg *pubsub.Message) { w.processMessage(ctx, topic, msg) })
 		}(subs, topic)
 	}
 
-	for {
-		select {
-		case msg := <-ch:
-			w.processMessage(msg.topic, msg.message)
-		case <-w.shutdown:
-			return
-		}
-	}
+	<-w.shutdown
 }
 
 func (w *workerEngine) Shutdown(ctx context.Context) {
@@ -139,26 +124,39 @@ func (w *workerEngine) createSubscription(subscriberID string, topic *pubsub.Top
 	return sub
 }
 
-func (w *workerEngine) processMessage(topic string, msg *pubsub.Message) {
+func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pubsub.Message) {
 	if w.ctx.Err() != nil {
 		logger.LogRed("gcppubsub_consumer > ctx root err: " + w.ctx.Err().Error())
 		return
 	}
 
-	var err error
-	trace, ctx := tracer.StartTraceWithContext(w.ctx, "GCPPubSubConsumer")
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic: %v", r)
-		}
-		msg.Ack()
-		trace.SetError(err)
-		logger.LogGreen("gcppubsub_consumer > trace_url: " + tracer.GetTraceURL(ctx))
-		trace.Finish()
-	}()
+	w.semaphore[topic] <- struct{}{}
 
-	trace.SetTag("topic", topic)
-	trace.Log("attributes", msg.Attributes)
-	trace.Log("body", msg.Data)
-	err = w.handlers[topic](ctx, msg.Data)
+	go func(topic string, msg *pubsub.Message) {
+		defer func() { <-w.semaphore[topic] }()
+
+		var err error
+		trace, ctx := tracer.StartTraceWithContext(ctx, "GCPPubSubConsumer")
+		defer func() {
+			if r := recover(); r != nil {
+				err = fmt.Errorf("panic: %v", r)
+			}
+			msg.Ack()
+			trace.SetError(err)
+			logger.LogGreen("gcppubsub_consumer > trace_url: " + tracer.GetTraceURL(ctx))
+			trace.Finish()
+		}()
+
+		trace.SetTag("topic", topic)
+		trace.Log("attributes", msg.Attributes)
+		trace.Log("body", msg.Data)
+
+		ctx = candishared.SetToContext(ctx, MessageAttribute, msg.Attributes)
+		selectedHandler := w.handlers[topic]
+		if err = selectedHandler.handlerFunc(ctx, msg.Data); err != nil {
+			for _, errHandler := range selectedHandler.errorHandlers {
+				errHandler(ctx, GoogleCloudPubSub, topic, msg.Data, err)
+			}
+		}
+	}(topic, msg)
 }

@@ -2,13 +2,15 @@
 
 ## Install this plugin in your `candi` service
 
+Please set env GOOGLE_APPLICATION_CREDENTIALS=[path to your gcp credentials] for implisit load gcp credential (https://cloud.google.com/docs/authentication/production)
+
 ### Add in service.go
 
 ```go
 package service
 
 import (
-    "github.com/agungdwiprasetyo/candi-plugin/worker/gcppubsub"
+    "github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
 ...
 
 // Service model
@@ -26,7 +28,7 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
     // Add custom application runner, must implement `factory.AppServerFactory` methods
 	s.applications = append(s.applications, []factory.AppServerFactory{
 		// customApplication
-		gcppubsub.NewPubSubWorker(s, "[your gcp project id]", "[your-consumer-group-id]"),
+		gcppubsub.NewPubSubWorker(s, gcppubsub.InitDefaultClient("[your gcp project id]", "[your credentials path]"), "[your-consumer-group-id]"),
 	}...)
 
     ...
@@ -42,7 +44,7 @@ package examplemodule
 import (
 	"example.service/internal/modules/examplemodule/delivery/workerhandler"
 
-    "github.com/agungdwiprasetyo/candi-plugin/worker/gcppubsub"
+    "github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
 
 	"pkg.agungdp.dev/candi/codebase/factory/dependency"
 	"pkg.agungdp.dev/candi/codebase/factory/types"
@@ -102,12 +104,30 @@ func (h *GCPPubSubHandler) MountHandlers(group *types.WorkerHandlerGroup) {
 }
 
 func (h *GCPPubSubHandler) handleTopic(ctx context.Context, message []byte) error {
-	trace := tracer.StartTrace(ctx, "DeliveryGCPPubSub:HandleTopic")
+	trace, ctx := tracer.StartTraceWithContext(ctx, "DeliveryGCPPubSub:HandleTopic")
 	defer trace.Finish()
-	ctx = trace.Context()
 
-	log.Printf("message consumed. message: %s\n", message)
+	log.Printf("message attributes: %+v\n", gcppubsub.GetMessageAttributes(ctx))
+	log.Printf("message value: %s\n", message)
 	// call usecase
 	return nil
+}
+```
+
+
+### Publisher
+
+Example:
+
+```go
+func publish(){
+	pub := gcppubsub.NewPublisher(gcppubsub.InitDefaultClient("[your gcp project id]", "[your credentials path]"))
+	if err := pub.PublishMessage(context.Background(), &candishared.PublisherArgument{
+		Topic:  "example-topic",
+		Data:   "hello world",
+		Header: map[string]interface{}{"key": "value"},
+	}); err != nil {
+		panic(err)
+	}
 }
 ```
