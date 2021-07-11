@@ -40,7 +40,8 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
 package examplemodule
 
 import (
-	"example.service/internal/modules/examplemodule/delivery/p2phandler"
+	"example.service/internal/modules/examplemodule/delivery/p2pudphandler"
+	"example.service/pkg/shared/usecase"
 
 	p2pudp "github.com/agungdwiprasetyo/candi-plugin/p2p_udp"
 
@@ -59,7 +60,7 @@ func NewModules(deps dependency.Dependency) *Module {
 		serverHandlers: map[types.Server]interfaces.ServerHandler{
 			// ...another server handler
 			// ...
-			p2pudp.P2PUDP: p2phandler.NewHandler(usecaseUOW.User(), dependency.GetMiddleware(), dependency.GetValidator()),
+			p2pudp.P2PUDP: p2pudphandler.NewHandler(usecase.GetSharedUsecase(), dependency.GetMiddleware(), dependency.GetValidator()),
 		},
 	}
 }
@@ -70,12 +71,12 @@ func NewModules(deps dependency.Dependency) *Module {
 ### Create delivery handler
 
 ```go
-package p2pserver
+package p2pudphandler
 
 import (
 	"encoding/json"
 
-	"example.service/internal/modules/examplemodule/usecase"
+	"example.service/pkg/shared/usecase"
 
 	p2pudp "github.com/agungdwiprasetyo/candi-plugin/p2p_udp"
 	"pkg.agungdp.dev/candi/codebase/interfaces"
@@ -85,12 +86,12 @@ import (
 // Handler type
 type Handler struct {
 	mw        interfaces.Middleware
-	uc        usecase.UserUsecase
+	uc        usecase.Usecase
 	validator interfaces.Validator
 }
 
 // NewHandler constructor
-func NewHandler(uc usecase.UserUsecase, mw interfaces.Middleware, validator interfaces.Validator) *Handler {
+func NewHandler(uc usecase.Usecase, mw interfaces.Middleware, validator interfaces.Validator) *Handler {
 	return &Handler{
 		uc:        uc,
 		mw:        mw,
