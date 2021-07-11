@@ -1,26 +1,39 @@
 package p2pudp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
 	"net"
-	"strings"
 
 	"pkg.agungdp.dev/candi/codebase/factory"
 	"pkg.agungdp.dev/candi/logger"
+	"pkg.agungdp.dev/candi/tracer"
 )
 
 type server struct {
-	udpConn  *net.UDPConn
-	readSize int
-	handlers map[string]HandlerFunc
+	readSize            int
+	maxConcurrentClient int
+	enableTracing       bool
+
+	udpConn   *net.UDPConn
+	handlers  map[string]HandlerFunc
+	semaphore chan struct{}
 }
 
 // NewP2PUDP init p2p UDP server
-func NewP2PUDP(service factory.ServiceFactory, port string) factory.AppServerFactory {
-	var srv server
+func NewP2PUDP(service factory.ServiceFactory, port string, opts ...ServerOption) factory.AppServerFactory {
+	srv := new(server)
 	srv.readSize = 1024
+	srv.maxConcurrentClient = 100
+	srv.enableTracing = true
+
+	for _, opt := range opts {
+		opt(srv)
+	}
+
+	srv.semaphore = make(chan struct{}, srv.maxConcurrentClient)
 	srv.handlers = make(map[string]HandlerFunc)
 
 	udpAddr, err := net.ResolveUDPAddr("udp4", port)
@@ -39,13 +52,13 @@ func NewP2PUDP(service factory.ServiceFactory, port string) factory.AppServerFac
 			h.MountHandlers(&handlers)
 			for _, handler := range handlers.Handlers {
 				srv.handlers[handler.Prefix] = handler.HandlerFunc
-				logger.LogYellow(fmt.Sprintf(`[P2P_UDP-SERVER] (route): %-15s  --> (module): "%s"`, `"`+handler.Prefix+`"`, m.Name()))
+				logger.LogYellow(fmt.Sprintf(`[P2P_UDP] (route): %-15s  --> (module): "%s"`, `"`+handler.Prefix+`"`, m.Name()))
 			}
 		}
 	}
 
-	fmt.Printf("\x1b[34;1m⇨ P2P UDP server running with %d route\x1b[0m\n\n", len(srv.handlers))
-	return &srv
+	fmt.Printf("\x1b[34;1m⇨ P2P UDP running with %d route and port [::]%s\x1b[0m\n\n", len(srv.handlers), port)
+	return srv
 }
 
 func (s *server) Serve() {
@@ -57,30 +70,55 @@ func (s *server) Serve() {
 			continue
 		}
 
-		messages := strings.Split(strings.TrimSpace(string(buffer[0:n])), ":")
-		if len(messages) != 2 {
-			log.Println("not processing incoming request")
-			s.udpConn.WriteToUDP([]byte(EOF), addr)
-			continue
-		}
-		targetHandler := messages[0]
-		message := messages[1]
-		handlerFunc, ok := s.handlers[targetHandler]
-		if !ok {
-			log.Println("handler not found")
-			s.udpConn.WriteToUDP([]byte("handler '"+targetHandler+"' not found"), addr)
-			continue
-		}
+		s.semaphore <- struct{}{}
+		go func(clientAddr *net.UDPAddr, buff []byte) {
+			defer func() { <-s.semaphore }()
 
-		ctx := contextImpl{
-			ctx:        context.Background(),
-			conn:       s.udpConn,
-			clientAddr: addr,
-			message:    []byte(message),
-		}
-		if err := handlerFunc(&ctx); err != nil {
-			log.Println(err)
-		}
+			messages := bytes.Split(bytes.TrimSpace(buff), []byte(":"))
+			if len(messages) < 2 {
+				log.Println("not processing incoming request")
+				s.udpConn.WriteToUDP([]byte(EOF), clientAddr)
+				return
+			}
+
+			targetHandler := string(messages[0])
+			handlerFunc, ok := s.handlers[targetHandler]
+			if !ok {
+				log.Println("handler not found")
+				s.udpConn.WriteToUDP([]byte("handler '"+targetHandler+"' not found"), addr)
+				return
+			}
+
+			var err error
+			ctx := context.Background()
+			if s.enableTracing {
+				trace := tracer.StartTrace(ctx, "P2PUDP")
+				trace.SetTag("client.network", clientAddr.Network())
+				trace.SetTag("client.addr", clientAddr.String())
+				trace.Log("incoming_message", buff)
+				defer func() {
+					trace.SetError(err)
+					logger.LogGreen(s.Name() + " > trace_url: " + tracer.GetTraceURL(ctx))
+					trace.Finish()
+				}()
+				ctx = trace.Context()
+			}
+
+			defer func() {
+				if r := recover(); r != nil {
+					err = fmt.Errorf("%v", r)
+				}
+				if err != nil {
+					s.udpConn.WriteToUDP([]byte(err.Error()), addr)
+				}
+			}()
+			err = handlerFunc(&contextImpl{
+				ctx:        ctx,
+				conn:       s.udpConn,
+				clientAddr: clientAddr,
+				message:    bytes.Join(messages[1:], []byte(":")),
+			})
+		}(addr, buffer[0:n])
 	}
 }
 
