@@ -64,8 +64,7 @@ func (c *contextImpl) GetMessage() []byte {
 
 // WriteResponse method
 func (c *contextImpl) Write(message []byte) (n int, err error) {
-	_, err = c.conn.WriteToUDP(message, c.clientAddr)
-	return len(message), err
+	return c.conn.WriteToUDP(message, c.clientAddr)
 }
 
 // ParseGroupHandler parse mount handler param
