@@ -42,9 +42,10 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
 package examplemodule
 
 import (
-	"example.service/internal/modules/examplemodule/delivery/workerhandler"
+	"example.service/internal/modules/examplemodule/delivery/fiberresthandler"
+	"example.service/pkg/shared/usecase"
 
-    fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
+	fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
 
 	"pkg.agungdp.dev/candi/codebase/factory/dependency"
 	"pkg.agungdp.dev/candi/codebase/factory/types"
@@ -61,7 +62,7 @@ func NewModules(deps dependency.Dependency) *Module {
 		serverHandlers: map[types.Server]interfaces.ServerHandler{
 			// ...another server handler
 			// ...
-			fiberrest.FiberREST: resthandler.NewFiberHandler(usecaseUOW.User(), dependency.GetMiddleware(), dependency.GetValidator()),
+			fiberrest.FiberREST: fiberresthandler.NewFiberHandler(usecase.GetSharedUsecase(), dependency.GetMiddleware(), dependency.GetValidator()),
 		},
 	}
 }
@@ -72,11 +73,13 @@ func NewModules(deps dependency.Dependency) *Module {
 ### Create delivery handler
 
 ```go
-package workerhandler
+package fiberresthandler
 
 import (
 	"context"
 	"encoding/json"
+
+	"example.service/pkg/shared/usecase"
 
 	fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
 	"github.com/gofiber/fiber/v2"

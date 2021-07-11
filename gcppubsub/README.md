@@ -43,8 +43,9 @@ package examplemodule
 
 import (
 	"example.service/internal/modules/examplemodule/delivery/workerhandler"
+	"example.service/pkg/shared/usecase"
 
-    "github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
+	"github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
 
 	"pkg.agungdp.dev/candi/codebase/factory/dependency"
 	"pkg.agungdp.dev/candi/codebase/factory/types"
@@ -61,7 +62,7 @@ func NewModules(deps dependency.Dependency) *Module {
 		workerHandlers: map[types.Worker]interfaces.WorkerHandler{
 			// ...another worker handler
 			// ...
-			gcppubsub.GoogleCloudPubSub: workerhandler.NewGCPPubSubHandler(usecaseUOW.User(), deps.GetValidator()),
+			gcppubsub.GoogleCloudPubSub: workerhandler.NewGCPPubSubHandler(usecase.GetSharedUsecase(), deps.GetValidator()),
 		},
 	}
 }
@@ -77,8 +78,8 @@ package workerhandler
 import (
 	"context"
 	"encoding/json"
-	
-	"example.service/internal/modules/examplemodule/delivery/workerhandler"
+
+	"example.service/pkg/shared/usecase"
 
 	"pkg.agungdp.dev/candi/codebase/factory/types"
 	"pkg.agungdp.dev/candi/tracer"
