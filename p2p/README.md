@@ -28,7 +28,7 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
 	// Add custom application runner, must implement `factory.AppServerFactory` methods
 	s.applications = append(s.applications, []factory.AppServerFactory{
 		// customApplication
-		p2p.NewP2PUDP(s, "[UDP port]"),
+		p2p.NewP2PUDP(s, "[UDP port]", p2p.ServerSetBufferSize(1024)),
 	}...)
 
     ...

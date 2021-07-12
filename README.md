@@ -26,3 +26,7 @@ Fiber web Framework (https://gofiber.io)
 <p align="center">
 <img src="https://raw.githubusercontent.com/gofiber/docs/master/static/fiber_v2_logo.svg" width="150" alt="go fiber" />
 </p>
+
+## [Simple P2P](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/p2p)
+
+Simple P2P using UDP network (experimental)
