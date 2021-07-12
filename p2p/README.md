@@ -1,4 +1,6 @@
-# Peer to Peer UDP Server
+# Peer to Peer
+
+Simple communication with message
 
 ## Install this plugin in your `candi` service
 
@@ -8,7 +10,7 @@
 package service
 
 import (
-	p2pudp "github.com/agungdwiprasetyo/candi-plugin/p2p_udp"
+	"github.com/agungdwiprasetyo/candi-plugin/p2p"
 ...
 
 // Service model
@@ -26,7 +28,7 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
 	// Add custom application runner, must implement `factory.AppServerFactory` methods
 	s.applications = append(s.applications, []factory.AppServerFactory{
 		// customApplication
-		p2pudp.NewP2PUDP(s, "[UDP port]"),
+		p2p.NewP2PUDP(s, "[UDP port]"),
 	}...)
 
     ...
@@ -40,10 +42,10 @@ func NewService(cfg *config.Config) factory.ServiceFactory {
 package examplemodule
 
 import (
-	"example.service/internal/modules/examplemodule/delivery/p2pudphandler"
+	"example.service/internal/modules/examplemodule/delivery/p2phandler"
 	"example.service/pkg/shared/usecase"
 
-	p2pudp "github.com/agungdwiprasetyo/candi-plugin/p2p_udp"
+	"github.com/agungdwiprasetyo/candi-plugin/p2p"
 
 	"pkg.agungdp.dev/candi/codebase/factory/dependency"
 	"pkg.agungdp.dev/candi/codebase/factory/types"
@@ -60,7 +62,7 @@ func NewModules(deps dependency.Dependency) *Module {
 		serverHandlers: map[types.Server]interfaces.ServerHandler{
 			// ...another server handler
 			// ...
-			p2pudp.P2PUDP: p2pudphandler.NewHandler(usecase.GetSharedUsecase(), dependency.GetMiddleware(), dependency.GetValidator()),
+			p2p.P2PUDP: p2phandler.NewHandler(usecase.GetSharedUsecase(), dependency.GetMiddleware(), dependency.GetValidator()),
 		},
 	}
 }
@@ -71,14 +73,14 @@ func NewModules(deps dependency.Dependency) *Module {
 ### Create delivery handler
 
 ```go
-package p2pudphandler
+package p2phandler
 
 import (
 	"encoding/json"
 
 	"example.service/pkg/shared/usecase"
 
-	p2pudp "github.com/agungdwiprasetyo/candi-plugin/p2p_udp"
+	"github.com/agungdwiprasetyo/candi-plugin/p2p"
 	"pkg.agungdp.dev/candi/codebase/interfaces"
 	"pkg.agungdp.dev/candi/tracer"
 )
@@ -101,20 +103,20 @@ func NewHandler(uc usecase.Usecase, mw interfaces.Middleware, validator interfac
 
 // MountHandlers mount handler group
 func (h *Handler) MountHandlers(i interface{}) {
-	group := p2pudp.ParseGroupHandler(i)
+	group := p2p.ParseGroupHandler(i)
 
 	group.Register("test", h.handleTest)
 }
 
-func (h *Handler) handleTest(ctx p2pudp.Context) error {
-	trace := tracer.StartTrace(ctx.Context(), "P2PHandler:Test")
+func (h *Handler) handleTest(c p2p.Context) error {
+	trace := tracer.StartTrace(c.Context(), "P2PHandler:Test")
 	defer trace.Finish()
 
 	var message = map[string]string{
 		"message": "ok",
-		"request": string(ctx.GetMessage()),
+		"request": string(c.GetMessage()),
 	}
 
-	return json.NewEncoder(ctx).Encode(message)
+	return json.NewEncoder(c).Encode(message)
 }
 ```
