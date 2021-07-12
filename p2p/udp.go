@@ -1,4 +1,4 @@
-package p2pudp
+package p2p
 
 import (
 	"bytes"
@@ -12,25 +12,23 @@ import (
 	"pkg.agungdp.dev/candi/tracer"
 )
 
-type server struct {
-	readSize            int
-	maxConcurrentClient int
-	enableTracing       bool
+type p2pUDP struct {
+	option
 
 	udpConn   *net.UDPConn
 	handlers  map[string]HandlerFunc
 	semaphore chan struct{}
 }
 
-// NewP2PUDP init p2p UDP server
+// NewP2PUDP init p2p UDP network
 func NewP2PUDP(service factory.ServiceFactory, port string, opts ...ServerOption) factory.AppServerFactory {
-	srv := new(server)
-	srv.readSize = 1024
+	srv := new(p2pUDP)
+	srv.bufferSize = 1024
 	srv.maxConcurrentClient = 100
 	srv.enableTracing = true
 
 	for _, opt := range opts {
-		opt(srv)
+		opt(&srv.option)
 	}
 
 	srv.semaphore = make(chan struct{}, srv.maxConcurrentClient)
@@ -45,6 +43,7 @@ func NewP2PUDP(service factory.ServiceFactory, port string, opts ...ServerOption
 	if err != nil {
 		panic(err)
 	}
+	srv.udpConn.SetWriteBuffer(srv.bufferSize)
 
 	for _, m := range service.GetModules() {
 		if h := m.ServerHandler(P2PUDP); h != nil {
@@ -61,8 +60,8 @@ func NewP2PUDP(service factory.ServiceFactory, port string, opts ...ServerOption
 	return srv
 }
 
-func (s *server) Serve() {
-	buffer := make([]byte, s.readSize)
+func (s *p2pUDP) Serve() {
+	buffer := make([]byte, s.bufferSize)
 
 	for {
 		n, addr, err := s.udpConn.ReadFromUDP(buffer)
@@ -95,7 +94,7 @@ func (s *server) Serve() {
 				trace := tracer.StartTrace(ctx, "P2PUDP")
 				trace.SetTag("client.network", clientAddr.Network())
 				trace.SetTag("client.addr", clientAddr.String())
-				trace.Log("incoming_message", buff)
+				trace.Log("request_message", buff)
 				defer func() {
 					trace.SetError(err)
 					logger.LogGreen(s.Name() + " > trace_url: " + tracer.GetTraceURL(ctx))
@@ -112,7 +111,7 @@ func (s *server) Serve() {
 					s.udpConn.WriteToUDP([]byte(err.Error()), addr)
 				}
 			}()
-			err = handlerFunc(&contextImpl{
+			err = handlerFunc(&udpContextImpl{
 				ctx:        ctx,
 				conn:       s.udpConn,
 				clientAddr: clientAddr,
@@ -122,13 +121,13 @@ func (s *server) Serve() {
 	}
 }
 
-func (s *server) Shutdown(ctx context.Context) {
+func (s *p2pUDP) Shutdown(ctx context.Context) {
 	log.Println("\x1b[33;1mStopping UDP Server...\x1b[0m")
 	defer func() { log.Println("\x1b[33;1mStopping UDP Server:\x1b[0m \x1b[32;1mSUCCESS\x1b[0m") }()
 
 	s.udpConn.Close()
 }
 
-func (s *server) Name() string {
+func (s *p2pUDP) Name() string {
 	return string(P2PUDP)
 }
