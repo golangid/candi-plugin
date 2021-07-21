@@ -4,6 +4,10 @@ https://github.com/gofiber/fiber
 
 ## Install this plugin in your `candi` service
 
+```sh
+$ go get github.com/agungdwiprasetyo/candi-plugin/fiber_rest
+```
+
 ### Add in service.go
 
 ```go

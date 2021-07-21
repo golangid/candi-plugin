@@ -2,6 +2,10 @@
 
 ## Install this plugin in your `candi` service
 
+```sh
+$ go get github.com/agungdwiprasetyo/candi-plugin/gcppubsub
+```
+
 Please set env GOOGLE_APPLICATION_CREDENTIALS=[path to your gcp credentials] for implisit load gcp credential (https://cloud.google.com/docs/authentication/production)
 
 ### Add in service.go

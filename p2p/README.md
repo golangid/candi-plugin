@@ -4,6 +4,10 @@ Simple communication with message
 
 ## Install this plugin in your `candi` service
 
+```sh
+$ go get github.com/agungdwiprasetyo/candi-plugin/p2p
+```
+
 ### Add in service.go
 
 ```go
