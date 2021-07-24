@@ -9,9 +9,15 @@ import (
 const (
 	// P2PUDP types
 	P2PUDP types.Server = "p2p_udp"
+	// P2PTCP types
+	P2PTCP types.Server = "p2p_tcp"
 
 	// EOF const
 	EOF = "EOF"
+)
+
+var (
+	separator = []byte{58}
 )
 
 type (
