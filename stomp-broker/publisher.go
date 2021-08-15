@@ -1,4 +1,4 @@
-package stompworker
+package stompbroker
 
 import (
 	"context"
@@ -20,8 +20,8 @@ type publisher struct {
 	conn *stomp.Conn
 }
 
-// NewStompPublisher constructor
-func NewStompPublisher(conn *stomp.Conn) interfaces.Publisher {
+// NewPublisher constructor
+func NewPublisher(conn *stomp.Conn) interfaces.Publisher {
 	return &publisher{
 		conn: conn,
 	}

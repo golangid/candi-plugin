@@ -1,4 +1,4 @@
-package stompworker
+package stompbroker
 
 import (
 	"context"
@@ -14,11 +14,6 @@ import (
 	"pkg.agungdp.dev/candi/tracer"
 )
 
-type handlerType struct {
-	handlerFunc   types.WorkerHandlerFunc
-	errorHandlers []types.WorkerErrorHandler
-}
-
 type workerEngine struct {
 	ctx           context.Context
 	ctxCancelFunc func()
@@ -30,22 +25,27 @@ type workerEngine struct {
 	wg         sync.WaitGroup
 
 	conn     *stomp.Conn
-	handlers map[string]handlerType
+	handlers map[string]types.WorkerHandler
 }
 
-// NewStompWorker create new stomp client worker for subscribe from queue
-func NewStompWorker(service factory.ServiceFactory, conn *stomp.Conn) factory.AppServerFactory {
+// NewSTOMPWorker create new stomp client worker for subscribe from queue
+func NewSTOMPWorker(service factory.ServiceFactory) factory.AppServerFactory {
+	if service.GetDependency().GetBroker(STOMPBroker) == nil {
+		panic("Missing STOMP configuration, make sure STOMP has been registered to broker in service config")
+	}
+
+	conn := service.GetDependency().GetBroker(STOMPBroker).GetConfiguration().(*stomp.Conn)
 	worker := &workerEngine{
 		conn: conn,
 	}
 
 	worker.ctx, worker.ctxCancelFunc = context.WithCancel(context.Background())
 	worker.shutdown = make(chan struct{}, 1)
-	worker.handlers = make(map[string]handlerType)
+	worker.handlers = make(map[string]types.WorkerHandler)
 	worker.semaphore = make(map[string]chan struct{})
 
 	for _, m := range service.GetModules() {
-		if h := m.WorkerHandler(STOMPConsumer); h != nil {
+		if h := m.WorkerHandler(STOMPBroker); h != nil {
 			var handlerGroup types.WorkerHandlerGroup
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
@@ -53,10 +53,7 @@ func NewStompWorker(service factory.ServiceFactory, conn *stomp.Conn) factory.Ap
 					panic(fmt.Errorf("STOMP Worker: warning, topic %s has been used in another module, overwrite handler func", handler.Pattern))
 				}
 
-				worker.handlers[handler.Pattern] = handlerType{
-					handlerFunc: handler.HandlerFunc, errorHandlers: handler.ErrorHandler,
-				}
-
+				worker.handlers[handler.Pattern] = handler
 				sub, err := conn.Subscribe(handler.Pattern, stomp.AckClient)
 				if err != nil {
 					panic(fmt.Errorf("STOMP: cannot subscribe to %s: %s", handler.Pattern, err.Error()))
@@ -71,7 +68,7 @@ func NewStompWorker(service factory.ServiceFactory, conn *stomp.Conn) factory.Ap
 		}
 	}
 
-	fmt.Printf("\x1b[34;1m⇨ STOMP worker running. Broker: %s\x1b[0m\n\n", conn.Server())
+	fmt.Printf("\x1b[34;1m⇨ STOMP worker running with %d topics. Broker: %s\x1b[0m\n\n", len(worker.handlers), conn.Server())
 	return worker
 }
 
@@ -124,7 +121,7 @@ func (w *workerEngine) Shutdown(ctx context.Context) {
 }
 
 func (w *workerEngine) Name() string {
-	return string(STOMPConsumer)
+	return string(STOMPBroker)
 }
 
 func (w *workerEngine) processMessage(msg *stomp.Message) {
@@ -133,12 +130,21 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 		return
 	}
 
+	ctx := w.ctx
+	selectedHandler := w.handlers[msg.Destination]
+	if selectedHandler.DisableTrace {
+		ctx = tracer.SkipTraceContext(ctx)
+	}
+
 	trace, ctx := tracer.StartTraceWithContext(w.ctx, "STOMPWorker")
 	defer func() {
 		if r := recover(); r != nil {
-			trace.SetError(fmt.Errorf("%v", r))
+			trace.SetError(fmt.Errorf("panic: %v", r))
 		}
-		msg.Conn.Ack(msg)
+
+		if selectedHandler.AutoACK {
+			msg.Conn.Ack(msg)
+		}
 		logger.LogGreen(w.Name() + " > trace_url: " + tracer.GetTraceURL(ctx))
 		trace.Finish()
 	}()
@@ -150,10 +156,9 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 	trace.SetTag("content-type", msg.ContentType)
 	tracer.Log(ctx, "message.body", string(msg.Body))
 
-	selectedHandler := w.handlers[msg.Destination]
-	if err := selectedHandler.handlerFunc(ctx, msg.Body); err != nil {
-		for _, errHandler := range selectedHandler.errorHandlers {
-			errHandler(ctx, STOMPConsumer, msg.Destination, msg.Body, err)
+	if err := selectedHandler.HandlerFunc(ctx, msg.Body); err != nil {
+		if selectedHandler.ErrorHandler != nil {
+			selectedHandler.ErrorHandler(ctx, STOMPBroker, msg.Destination, msg.Body, err)
 		}
 		trace.SetError(err)
 	}

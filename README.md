@@ -10,7 +10,7 @@ Extend candi server or worker
 
 Google Cloud PubSub
 
-## [STOMP](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/stomp_worker)
+## [STOMP](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/stomp-broker)
 
 <p align="center">
 <img src="https://storage.googleapis.com/agungdp/static/logo/stomp.png" width="120" alt="stomp logo" />
