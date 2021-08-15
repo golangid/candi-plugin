@@ -65,5 +65,9 @@ func (c *tcpContextImpl) Write(message []byte) (n int, err error) {
 			return n, err
 		}
 	}
+
+	if err := c.conn.(interface{ CloseWrite() error }).CloseWrite(); err != nil {
+		return n, err
+	}
 	return len(message), nil
 }

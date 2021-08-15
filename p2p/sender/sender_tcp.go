@@ -10,6 +10,7 @@ import (
 type tcpSenderImpl struct {
 	conn       net.Conn
 	bufferSize int
+	buffer     *bytes.Buffer
 }
 
 // NewTCPSender init tcp sender
@@ -21,6 +22,7 @@ func NewTCPSender(targetAddress string, bufferSize int) (Sender, error) {
 	return &tcpSenderImpl{
 		conn:       conn,
 		bufferSize: bufferSize,
+		buffer:     new(bytes.Buffer),
 	}, nil
 }
 
@@ -47,20 +49,10 @@ func (t *tcpSenderImpl) Send(ctx context.Context, handler string, message []byte
 	}
 
 	// read response message from receiver
-	bufferResponse := &bytes.Buffer{}
-	buff := make([]byte, t.bufferSize)
-	for {
-		n, err := t.conn.Read(buff)
-		if err != nil && err != io.EOF {
-			return nil, err
-		}
-		if n == 0 {
-			break
-		}
-		bufferResponse.Write(buff[0:n])
-	}
+	io.Copy(t.buffer, t.conn)
+	defer t.buffer.Reset()
 
-	return bufferResponse.Bytes(), nil
+	return t.buffer.Bytes(), nil
 }
 
 func (t *tcpSenderImpl) Close() error {
