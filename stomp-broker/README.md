@@ -106,7 +106,6 @@ func (h *STOMPHandler) handleTopic(ctx context.Context, message []byte) error {
 	trace, ctx := tracer.StartTraceWithContext(ctx, "DeliverySTOMPWorker:HandleTopic")
 	defer trace.Finish()
 
-	log.Printf("message attributes: %+v\n", stompbroker.GetMessageAttributes(ctx))
 	log.Printf("message value: %s\n", message)
 	// call usecase
 	return nil
