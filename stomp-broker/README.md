@@ -114,6 +114,8 @@ func (h *STOMPHandler) handleTopic(ctx context.Context, message []byte) error {
 
 ### Register in module.go
 
+File `internal/modules/{{your module}}/module.go` in your service
+
 ```go
 package examplemodule
 
