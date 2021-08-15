@@ -14,11 +14,6 @@ import (
 	"pkg.agungdp.dev/candi/tracer"
 )
 
-type handlerType struct {
-	handlerFunc   types.WorkerHandlerFunc
-	errorHandlers []types.WorkerErrorHandler
-}
-
 type workerEngine struct {
 	ctx           context.Context
 	ctxCancelFunc func()
@@ -28,18 +23,22 @@ type workerEngine struct {
 	client    *pubsub.Client
 
 	subscribers map[string]*pubsub.Subscription
-	handlers    map[string]handlerType
+	handlers    map[string]types.WorkerHandler
 }
 
 // NewPubSubWorker create new gcp pubsub consumer, throw panic if error happened
-func NewPubSubWorker(service factory.ServiceFactory, client *pubsub.Client, subscriberID string) factory.AppServerFactory {
+func NewPubSubWorker(service factory.ServiceFactory, subscriberID string) factory.AppServerFactory {
+	if service.GetDependency().GetBroker(GoogleCloudPubSub) == nil {
+		panic("Missing GCP PubSub configuration, make sure GCP PubSub has been registered to broker in service config")
+	}
+
 	worker := new(workerEngine)
 	worker.ctx, worker.ctxCancelFunc = context.WithCancel(context.Background())
 
-	worker.client = client
+	worker.client = service.GetDependency().GetBroker(GoogleCloudPubSub).GetConfiguration().(*pubsub.Client)
 	worker.shutdown = make(chan struct{})
 	worker.subscribers = make(map[string]*pubsub.Subscription)
-	worker.handlers = make(map[string]handlerType)
+	worker.handlers = make(map[string]types.WorkerHandler)
 	worker.semaphore = make(map[string]chan struct{})
 
 	for _, m := range service.GetModules() {
@@ -51,9 +50,7 @@ func NewPubSubWorker(service factory.ServiceFactory, client *pubsub.Client, subs
 				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID+"_"+handler.Pattern, topic)
 
 				logger.LogYellow(fmt.Sprintf(`[GCPPUBSUB-CONSUMER] (topic): %-15s  --> (module): "%s"`, `"`+handler.Pattern+`"`, m.Name()))
-				worker.handlers[handler.Pattern] = handlerType{
-					handlerFunc: handler.HandlerFunc, errorHandlers: handler.ErrorHandler,
-				}
+				worker.handlers[handler.Pattern] = handler
 				worker.semaphore[handler.Pattern] = make(chan struct{}, 1)
 			}
 		}
@@ -95,12 +92,12 @@ func (w *workerEngine) createTopic(topicName string) *pubsub.Topic {
 	topic := w.client.Topic(topicName)
 	ok, err := topic.Exists(w.ctx)
 	if err != nil {
-		panic(err)
+		panic("GCP PubSub: " + err.Error())
 	}
 	if !ok {
 		topic, err = w.client.CreateTopic(w.ctx, topicName)
 		if err != nil {
-			panic(err)
+			panic("GCP PubSub: " + err.Error())
 		}
 	}
 	return topic
@@ -110,7 +107,7 @@ func (w *workerEngine) createSubscription(subscriberID string, topic *pubsub.Top
 	sub := w.client.Subscription(subscriberID)
 	ok, err := sub.Exists(w.ctx)
 	if err != nil {
-		panic(err)
+		panic("GCP PubSub: " + err.Error())
 	}
 	if !ok {
 		sub, err = w.client.CreateSubscription(w.ctx, subscriberID, pubsub.SubscriptionConfig{
@@ -118,7 +115,7 @@ func (w *workerEngine) createSubscription(subscriberID string, topic *pubsub.Top
 			AckDeadline: 20 * time.Second,
 		})
 		if err != nil {
-			panic(err)
+			panic("GCP PubSub: " + err.Error())
 		}
 	}
 	return sub
@@ -135,13 +132,21 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 	go func(topic string, msg *pubsub.Message) {
 		defer func() { <-w.semaphore[topic] }()
 
+		selectedHandler := w.handlers[topic]
+		if selectedHandler.DisableTrace {
+			ctx = tracer.SkipTraceContext(ctx)
+		}
+
 		var err error
 		trace, ctx := tracer.StartTraceWithContext(ctx, "GCPPubSubConsumer")
 		defer func() {
 			if r := recover(); r != nil {
 				err = fmt.Errorf("panic: %v", r)
 			}
-			msg.Ack()
+
+			if selectedHandler.AutoACK {
+				msg.Ack()
+			}
 			trace.SetError(err)
 			logger.LogGreen("gcppubsub_consumer > trace_url: " + tracer.GetTraceURL(ctx))
 			trace.Finish()
@@ -151,11 +156,12 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 		trace.Log("attributes", msg.Attributes)
 		trace.Log("body", msg.Data)
 
+		log.Printf("\x1b[35;3mGCP PubSub Worker: consuming message from topic '%s'\x1b[0m", topic)
+
 		ctx = candishared.SetToContext(ctx, MessageAttribute, msg.Attributes)
-		selectedHandler := w.handlers[topic]
-		if err = selectedHandler.handlerFunc(ctx, msg.Data); err != nil {
-			for _, errHandler := range selectedHandler.errorHandlers {
-				errHandler(ctx, GoogleCloudPubSub, topic, msg.Data, err)
+		if err = selectedHandler.HandlerFunc(ctx, msg.Data); err != nil {
+			if selectedHandler.ErrorHandler != nil {
+				selectedHandler.ErrorHandler(ctx, GoogleCloudPubSub, topic, msg.Data, err)
 			}
 		}
 	}(topic, msg)
