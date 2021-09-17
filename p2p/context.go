@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/tracer"
 )
 
 type udpContextImpl struct {

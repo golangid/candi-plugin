@@ -7,9 +7,9 @@ import (
 	"log"
 	"net"
 
-	"pkg.agungdp.dev/candi/codebase/factory"
-	"pkg.agungdp.dev/candi/logger"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/codebase/factory"
+	"github.com/golangid/candi/logger"
+	"github.com/golangid/candi/tracer"
 )
 
 type p2pUDP struct {

@@ -5,7 +5,7 @@ Simple communication with message
 ## Install this plugin in your `candi` service
 
 ```sh
-$ go get github.com/agungdwiprasetyo/candi-plugin/p2p
+$ go get github.com/golangid/candi-plugin/p2p
 ```
 
 ### Add in service.go
@@ -14,7 +14,7 @@ $ go get github.com/agungdwiprasetyo/candi-plugin/p2p
 package service
 
 import (
-	"github.com/agungdwiprasetyo/candi-plugin/p2p"
+	"github.com/golangid/candi-plugin/p2p"
 ...
 
 // Service model
@@ -49,11 +49,11 @@ import (
 	"example.service/internal/modules/examplemodule/delivery/p2phandler"
 	"example.service/pkg/shared/usecase"
 
-	"github.com/agungdwiprasetyo/candi-plugin/p2p"
+	"github.com/golangid/candi-plugin/p2p"
 
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type Module struct {
@@ -84,9 +84,9 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
-	"github.com/agungdwiprasetyo/candi-plugin/p2p"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi-plugin/p2p"
+	"github.com/golangid/candi/codebase/interfaces"
+	"github.com/golangid/candi/tracer"
 )
 
 // Handler type
