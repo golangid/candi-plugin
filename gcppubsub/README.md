@@ -3,7 +3,7 @@
 ## Install this plugin in your `candi` service
 
 ```sh
-$ go get github.com/agungdwiprasetyo/candi-plugin/gcppubsub
+$ go get github.com/golangid/candi-plugin/gcppubsub
 ```
 
 [OPTIONAL] Set env GOOGLE_APPLICATION_CREDENTIALS=[path to your gcp credentials] for implisit load gcp credential (https://cloud.google.com/docs/authentication/production)
@@ -16,7 +16,7 @@ File `configs/configs.go` in your service
 package configs
 
 import (
-    "github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
+    "github.com/golangid/candi-plugin/gcppubsub"
 ...
 
 // LoadServiceConfigs load selected dependency configuration in this service
@@ -27,7 +27,9 @@ func LoadServiceConfigs(baseCfg *config.Config) (deps dependency.Dependency) {
 		brokerDeps := broker.InitBrokers(
 			// another broker,
 			// ...
-			gcppubsub.SetGCPPubSubBroker(gcppubsub.InitDefaultClient("[your gcp project id]", "[your credentials path]")),
+			gcppubsub.NewGCPPubSubBroker(
+				gcppubsub.BrokerSetClient(gcppubsub.InitDefaultClient("[your gcp project id]", "[your credentials path]")),
+			),
 		)
 
 		... 
@@ -42,7 +44,7 @@ File `internal/service.go` in your service
 package service
 
 import (
-    "github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
+    "github.com/golangid/candi-plugin/gcppubsub"
 ...
 
 // Service model
@@ -81,8 +83,8 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/tracer"
 )
 
 // GCPPubSubHandler struct
@@ -126,11 +128,10 @@ import (
 	"example.service/internal/modules/examplemodule/delivery/workerhandler"
 	"example.service/pkg/shared/usecase"
 
-	"github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
-
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi-plugin/gcppubsub"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type Module struct {
@@ -161,10 +162,10 @@ package usecase
 import (
 	"context"
 
-	"github.com/agungdwiprasetyo/candi-plugin/gcppubsub"
-	"pkg.agungdp.dev/candi/candishared"
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi-plugin/gcppubsub"
+	"github.com/golangid/candi/candishared"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type usecaseImpl {

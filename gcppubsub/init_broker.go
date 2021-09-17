@@ -4,11 +4,28 @@ import (
 	"context"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
+	"github.com/golangid/candi/logger"
 	"google.golang.org/api/option"
-	"pkg.agungdp.dev/candi/broker"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
-	"pkg.agungdp.dev/candi/logger"
 )
+
+// BrokerOptionFunc func type
+type BrokerOptionFunc func(*Broker)
+
+// BrokerSetClient set gcp client
+func BrokerSetClient(client *pubsub.Client) BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.client = client
+	}
+}
+
+// BrokerSetPublisher set custom publisher
+func BrokerSetPublisher(pub interfaces.Publisher) BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.publisher = pub
+	}
+}
 
 // InitDefaultClient setup gcp pubsub client
 func InitDefaultClient(gcpProjectName, credentialPath string) *pubsub.Client {
@@ -20,24 +37,27 @@ func InitDefaultClient(gcpProjectName, credentialPath string) *pubsub.Client {
 	return client
 }
 
-// SetGCPPubSubBroker setup gcp pubsub broker for publisher or consumer
-func SetGCPPubSubBroker(client *pubsub.Client) broker.OptionFunc {
-	deferFunc := logger.LogWithDefer("Load GCP PubSub broker configuration... ")
-	defer deferFunc()
-
-	gcpPubSubBroker := &Broker{
-		client:    client,
-		publisher: NewPublisher(client),
-	}
-	return func(bi *broker.Broker) {
-		bi.RegisterBroker(GoogleCloudPubSub, gcpPubSubBroker)
-	}
-}
-
 // Broker gcp pubsub broker
 type Broker struct {
 	client    *pubsub.Client
 	publisher interfaces.Publisher
+}
+
+// NewGCPPubSubBroker setup gcp pubsub broker for publisher or consumer
+func NewGCPPubSubBroker(opts ...BrokerOptionFunc) *Broker {
+	deferFunc := logger.LogWithDefer("Load GCP PubSub broker configuration... ")
+	defer deferFunc()
+
+	gcpPubSubBroker := &Broker{}
+	for _, opt := range opts {
+		opt(gcpPubSubBroker)
+	}
+
+	if gcpPubSubBroker.publisher == nil {
+		gcpPubSubBroker.publisher = NewPublisher(gcpPubSubBroker.client)
+	}
+
+	return gcpPubSubBroker
 }
 
 // GetConfiguration method
@@ -48,6 +68,11 @@ func (g *Broker) GetConfiguration() interface{} {
 // GetPublisher method
 func (g *Broker) GetPublisher() interfaces.Publisher {
 	return g.publisher
+}
+
+// GetName method
+func (g *Broker) GetName() types.Worker {
+	return GoogleCloudPubSub
 }
 
 // Health method

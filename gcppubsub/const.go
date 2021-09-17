@@ -1,8 +1,8 @@
 package gcppubsub
 
 import (
-	"pkg.agungdp.dev/candi/candishared"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
+	"github.com/golangid/candi/candishared"
+	"github.com/golangid/candi/codebase/factory/types"
 )
 
 const (

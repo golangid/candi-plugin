@@ -3,7 +3,7 @@ package gcppubsub
 import (
 	"context"
 
-	"pkg.agungdp.dev/candi/candishared"
+	"github.com/golangid/candi/candishared"
 )
 
 // GetMessageAttributes get message attributes from context
