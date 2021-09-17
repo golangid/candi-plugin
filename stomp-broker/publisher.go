@@ -4,10 +4,10 @@ import (
 	"context"
 
 	"github.com/go-stomp/stomp/v3"
-	"pkg.agungdp.dev/candi/candihelper"
-	"pkg.agungdp.dev/candi/candishared"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/candihelper"
+	"github.com/golangid/candi/candishared"
+	"github.com/golangid/candi/codebase/interfaces"
+	"github.com/golangid/candi/tracer"
 )
 
 const (

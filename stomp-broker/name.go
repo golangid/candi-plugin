@@ -1,6 +1,6 @@
 package stompbroker
 
-import "pkg.agungdp.dev/candi/codebase/factory/types"
+import "github.com/golangid/candi/codebase/factory/types"
 
 const (
 	// STOMPBroker types

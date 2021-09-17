@@ -3,7 +3,7 @@
 ## Install this plugin in your `candi` service
 
 ```sh
-$ go get github.com/agungdwiprasetyo/candi-plugin/stomp-broker
+$ go get github.com/golangid/candi-plugin/stomp-broker
 ```
 
 ### Register to broker in service config
@@ -14,7 +14,7 @@ File `configs/configs.go` in your service
 package configs
 
 import (
-    "github.com/agungdwiprasetyo/candi-plugin/stomp-broker"
+    "github.com/golangid/candi-plugin/stomp-broker"
 ...
 
 // LoadServiceConfigs load selected dependency configuration in this service
@@ -40,7 +40,7 @@ File `internal/service.go` in your service
 package service
 
 import (
-    "github.com/agungdwiprasetyo/candi-plugin/stomp-broker"
+    "github.com/golangid/candi-plugin/stomp-broker"
 ...
 
 // Service model
@@ -79,8 +79,8 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/tracer"
 )
 
 // STOMPHandler struct
@@ -123,11 +123,11 @@ import (
 	"example.service/internal/modules/{{your module}}/delivery/workerhandler"
 	"example.service/pkg/shared/usecase"
 
-	"github.com/agungdwiprasetyo/candi-plugin/stomp-broker"
+	"github.com/golangid/candi-plugin/stomp-broker"
 
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type Module struct {
@@ -158,10 +158,10 @@ package usecase
 import (
 	"context"
 
-	"github.com/agungdwiprasetyo/candi-plugin/stomp-broker"
-	"pkg.agungdp.dev/candi/candishared"
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi-plugin/stomp-broker"
+	"github.com/golangid/candi/candishared"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type usecaseImpl {

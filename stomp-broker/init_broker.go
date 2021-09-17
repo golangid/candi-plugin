@@ -5,10 +5,27 @@ import (
 	"time"
 
 	"github.com/go-stomp/stomp/v3"
-	"pkg.agungdp.dev/candi/broker"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
-	"pkg.agungdp.dev/candi/logger"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
+	"github.com/golangid/candi/logger"
 )
+
+// BrokerOptionFunc func type
+type BrokerOptionFunc func(*Broker)
+
+// BrokerSetConn set stomp connection
+func BrokerSetConn(conn *stomp.Conn) BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.conn = conn
+	}
+}
+
+// BrokerSetPublisher set custom publisher
+func BrokerSetPublisher(pub interfaces.Publisher) BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.publisher = pub
+	}
+}
 
 // InitDefaultConnection stomp
 func InitDefaultConnection(broker, username, password string) *stomp.Conn {
@@ -24,37 +41,46 @@ func InitDefaultConnection(broker, username, password string) *stomp.Conn {
 	return conn
 }
 
-// SetSTOMPBroker setup STOMP broker for publisher or consumer
-func SetSTOMPBroker(conn *stomp.Conn) broker.OptionFunc {
+// NewSTOMPBroker setup STOMP broker for publisher or consumer
+func NewSTOMPBroker(opts ...BrokerOptionFunc) *Broker {
 	deferFunc := logger.LogWithDefer("Load STOMP broker configuration... ")
 	defer deferFunc()
 
-	bk := &stompBroker{
-		conn:      conn,
-		publisher: NewPublisher(conn),
+	stompBroker := &Broker{}
+	for _, opt := range opts {
+		opt(stompBroker)
 	}
-	return func(bi *broker.Broker) {
-		bi.RegisterBroker(STOMPBroker, bk)
+
+	if stompBroker.publisher == nil {
+		stompBroker.publisher = NewPublisher(stompBroker.conn)
 	}
+
+	return stompBroker
 }
 
-type stompBroker struct {
+// Broker stomp
+type Broker struct {
 	conn      *stomp.Conn
 	publisher interfaces.Publisher
 }
 
 // GetConfiguration method
-func (s *stompBroker) GetConfiguration() interface{} {
+func (s *Broker) GetConfiguration() interface{} {
 	return s.conn
 }
 
 // GetPublisher method
-func (s *stompBroker) GetPublisher() interfaces.Publisher {
+func (s *Broker) GetPublisher() interfaces.Publisher {
 	return s.publisher
 }
 
+// GetName method
+func (s *Broker) GetName() types.Worker {
+	return STOMPBroker
+}
+
 // Health method
-func (s *stompBroker) Health() map[string]error {
+func (s *Broker) Health() map[string]error {
 
 	// TODO: add health check from client connection
 	var err error
@@ -64,7 +90,7 @@ func (s *stompBroker) Health() map[string]error {
 }
 
 // Disconnect method
-func (s *stompBroker) Disconnect(ctx context.Context) error {
+func (s *Broker) Disconnect(ctx context.Context) error {
 	deferFunc := logger.LogWithDefer("stomp broker: disconnect...")
 	defer deferFunc()
 
