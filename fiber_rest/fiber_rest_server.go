@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
-	"pkg.agungdp.dev/candi/codebase/factory"
+	"github.com/golangid/candi/codebase/factory"
 )
 
 type fiberREST struct {

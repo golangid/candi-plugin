@@ -2,7 +2,7 @@ package fiberrest
 
 import (
 	"github.com/gofiber/fiber/v2"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/factory/types"
 )
 
 const (

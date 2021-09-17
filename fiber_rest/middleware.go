@@ -7,11 +7,11 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/golangid/candi/config/env"
+	"github.com/golangid/candi/logger"
+	"github.com/golangid/candi/tracer"
 	"github.com/opentracing/opentracing-go"
 	"github.com/opentracing/opentracing-go/ext"
-	"pkg.agungdp.dev/candi/config/env"
-	"pkg.agungdp.dev/candi/logger"
-	"pkg.agungdp.dev/candi/tracer"
 )
 
 // JaegerTracingMiddleware use jaeger tracing middleware

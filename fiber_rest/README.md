@@ -5,7 +5,7 @@ https://github.com/gofiber/fiber
 ## Install this plugin in your `candi` service
 
 ```sh
-$ go get github.com/agungdwiprasetyo/candi-plugin/fiber_rest
+$ go get github.com/golangid/candi-plugin/fiber_rest
 ```
 
 ### Add in service.go
@@ -14,7 +14,7 @@ $ go get github.com/agungdwiprasetyo/candi-plugin/fiber_rest
 package service
 
 import (
-    fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
+    fiberrest "github.com/golangid/candi-plugin/fiber_rest"
 ...
 
 // Service model
@@ -49,11 +49,11 @@ import (
 	"example.service/internal/modules/examplemodule/delivery/fiberresthandler"
 	"example.service/pkg/shared/usecase"
 
-	fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
+	fiberrest "github.com/golangid/candi-plugin/fiber_rest"
 
-	"pkg.agungdp.dev/candi/codebase/factory/dependency"
-	"pkg.agungdp.dev/candi/codebase/factory/types"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
+	"github.com/golangid/candi/codebase/factory/dependency"
+	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
 )
 
 type Module struct {
@@ -85,12 +85,12 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
-	fiberrest "github.com/agungdwiprasetyo/candi-plugin/fiber_rest"
+	fiberrest "github.com/golangid/candi-plugin/fiber_rest"
 	"github.com/gofiber/fiber/v2"
 
-	"pkg.agungdp.dev/candi/candishared"
-	"pkg.agungdp.dev/candi/codebase/interfaces"
-	"pkg.agungdp.dev/candi/tracer"
+	"github.com/golangid/candi/candishared"
+	"github.com/golangid/candi/codebase/interfaces"
+	"github.com/golangid/candi/tracer"
 )
 
 // FiberHandler struct
