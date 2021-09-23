@@ -1,4 +1,4 @@
-module github.com/golangid/candi-plugin/fiber_rest
+module github.com/golangid/candi-plugin/fiber-rest
 
 go 1.16
 

@@ -5,7 +5,7 @@ https://github.com/gofiber/fiber
 ## Install this plugin in your `candi` service
 
 ```sh
-$ go get github.com/golangid/candi-plugin/fiber_rest
+$ go get github.com/golangid/candi-plugin/fiber-rest
 ```
 
 ### Add in service.go
@@ -14,7 +14,7 @@ $ go get github.com/golangid/candi-plugin/fiber_rest
 package service
 
 import (
-    fiberrest "github.com/golangid/candi-plugin/fiber_rest"
+    fiberrest "github.com/golangid/candi-plugin/fiber-rest"
 ...
 
 // Service model
@@ -49,7 +49,7 @@ import (
 	"example.service/internal/modules/examplemodule/delivery/fiberresthandler"
 	"example.service/pkg/shared/usecase"
 
-	fiberrest "github.com/golangid/candi-plugin/fiber_rest"
+	fiberrest "github.com/golangid/candi-plugin/fiber-rest"
 
 	"github.com/golangid/candi/codebase/factory/dependency"
 	"github.com/golangid/candi/codebase/factory/types"
@@ -85,7 +85,7 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
-	fiberrest "github.com/golangid/candi-plugin/fiber_rest"
+	fiberrest "github.com/golangid/candi-plugin/fiber-rest"
 	"github.com/gofiber/fiber/v2"
 
 	"github.com/golangid/candi/candishared"
