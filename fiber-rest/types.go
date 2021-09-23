@@ -7,7 +7,7 @@ import (
 
 const (
 	// FiberREST types
-	FiberREST types.Server = "fiber_rest"
+	FiberREST types.Server = "fiber-rest"
 )
 
 // ParseGroupHandler parse mount handler param to fiber group

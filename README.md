@@ -19,13 +19,14 @@ Google Cloud PubSub
 
 Can be used for AMQ Consumer
 
-## [Fiber REST Server](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/fiber_rest)
+## [Fiber REST Server](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/fiber-rest)
 
-Fiber web Framework (https://gofiber.io)
 
 <p align="center">
 <img src="https://raw.githubusercontent.com/gofiber/docs/master/static/fiber_v2_logo.svg" width="150" alt="go fiber" />
 </p>
+
+Fiber web Framework (https://gofiber.io)
 
 ## [Simple P2P](https://github.com/agungdwiprasetyo/candi-plugin/tree/master/p2p)
 
