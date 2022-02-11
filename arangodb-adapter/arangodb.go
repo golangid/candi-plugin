@@ -32,7 +32,7 @@ func (m *arangoInstance) Disconnect(ctx context.Context) (err error) {
 
 // InitArangoDB return mongo db read & write instance from environment:
 // ARANGODB_HOST_WRITE, ARANGODB_HOST_READ
-func InitArangoDB(ctx context.Context, env ArangoDBEnv) ArangoDatabase {
+func InitArangoDB(ctx context.Context, dsnRead string, dsnWrite string) ArangoDatabase {
 	log.Print("Load ArangoDB connection...")
 	defer func() {
 		if rec := recover(); rec != nil {
@@ -42,6 +42,7 @@ func InitArangoDB(ctx context.Context, env ArangoDBEnv) ArangoDatabase {
 		log.Print("\x1b[32;1mSUCCESS\x1b[0m")
 	}()
 
+	env := parseArangoEnv(dsnRead, dsnWrite)
 	readAuthentication := driver.BasicAuthentication(env.DbArangoReadUser, env.DbArangoReadPassword)
 	writeAuthentication := driver.BasicAuthentication(env.DbArangoWriteUser, env.DbArangoWritePassword)
 	return &arangoInstance{
