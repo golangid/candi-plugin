@@ -43,7 +43,7 @@ func InitArangoDB(ctx context.Context, env ArangoDBEnv) ArangoDatabase {
 	}()
 
 	readAuthentication := driver.BasicAuthentication(env.DbArangoReadUser, env.DbArangoReadPassword)
-	writeAuthentication := driver.BasicAuthentication(env.DbArangoWritePassword, env.DbArangoWritePassword)
+	writeAuthentication := driver.BasicAuthentication(env.DbArangoWriteUser, env.DbArangoWritePassword)
 	return &arangoInstance{
 		read:  ConnectArangoDB(ctx, env.DbArangoReadHost, env.DbArangoReadDatabase, readAuthentication),
 		write: ConnectArangoDB(ctx, env.DbArangoWriteHost, env.DbArangoWriteDatabase, writeAuthentication),
