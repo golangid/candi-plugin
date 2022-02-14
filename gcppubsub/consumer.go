@@ -137,18 +137,17 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 			ctx = tracer.SkipTraceContext(ctx)
 		}
 
-		var err error
-		trace, ctx := tracer.StartTraceWithContext(ctx, "GCPPubSubConsumer")
+		trace, ctx := tracer.StartTraceFromHeader(ctx, "GCPPubSubConsumer", msg.Attributes)
 		defer func() {
 			if r := recover(); r != nil {
-				err = fmt.Errorf("panic: %v", r)
+				trace.SetError(fmt.Errorf("panic: %v", r))
 			}
 
 			if selectedHandler.AutoACK {
 				msg.Ack()
 			}
-			trace.SetError(err)
 			logger.LogGreen("gcppubsub_consumer > trace_url: " + tracer.GetTraceURL(ctx))
+			trace.SetTag("trace_id", tracer.GetTraceID(ctx))
 			trace.Finish()
 		}()
 
@@ -158,10 +157,17 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 
 		log.Printf("\x1b[35;3mGCP PubSub Worker: consuming message from topic '%s'\x1b[0m", topic)
 
-		ctx = candishared.SetToContext(ctx, MessageAttribute, msg.Attributes)
-		if err = selectedHandler.HandlerFunc(ctx, msg.Data); err != nil {
-			if selectedHandler.ErrorHandler != nil {
-				selectedHandler.ErrorHandler(ctx, GoogleCloudPubSub, topic, msg.Data, err)
+		var eventContext candishared.EventContext
+		eventContext.SetContext(ctx)
+		eventContext.SetWorkerType(string(GoogleCloudPubSub))
+		eventContext.SetHandlerRoute(topic)
+		eventContext.SetHeader(msg.Attributes)
+		eventContext.SetKey(msg.ID)
+		eventContext.Write(msg.Data)
+
+		for _, handlerFunc := range selectedHandler.HandlerFuncs {
+			if err := handlerFunc(&eventContext); err != nil {
+				eventContext.SetError(err)
 			}
 		}
 	}(topic, msg)

@@ -79,6 +79,7 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
+	"github.com/golangid/candi/candishared"
 	"github.com/golangid/candi/codebase/factory/types"
 	"github.com/golangid/candi/tracer"
 )
@@ -102,11 +103,11 @@ func (h *STOMPHandler) MountHandlers(group *types.WorkerHandlerGroup) {
 	group.Add("example-topic", h.handleTopic) // consume topic "example-topic"
 }
 
-func (h *STOMPHandler) handleTopic(ctx context.Context, message []byte) error {
-	trace, ctx := tracer.StartTraceWithContext(ctx, "DeliverySTOMPWorker:HandleTopic")
+func (h *STOMPHandler) handleTopic(eventContext *candishared.EventContext) error {
+	trace, _ := tracer.StartTraceWithContext(eventContext.Context(), "DeliverySTOMPWorker:HandleTopic")
 	defer trace.Finish()
 
-	log.Printf("message value: %s\n", message)
+	log.Printf("message value: %s\n", eventContext.Message())
 	// call usecase
 	return nil
 }

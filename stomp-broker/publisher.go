@@ -4,15 +4,19 @@ import (
 	"context"
 
 	"github.com/go-stomp/stomp/v3"
+	"github.com/go-stomp/stomp/v3/frame"
 	"github.com/golangid/candi/candihelper"
 	"github.com/golangid/candi/candishared"
 	"github.com/golangid/candi/codebase/interfaces"
 	"github.com/golangid/candi/tracer"
+	"github.com/google/uuid"
 )
 
 const (
 	// StompContentTypeKey for context key
 	StompContentTypeKey = candishared.ContextKey("stompContentType")
+	// StompEventID for event id
+	StompEventID = "stompEventID"
 )
 
 // publisher instance
@@ -36,10 +40,30 @@ func (s *publisher) PublishMessage(ctx context.Context, args *candishared.Publis
 	if !ok {
 		contentType = "text/plain"
 	}
+
+	var message []byte
+	if len(args.Message) > 0 {
+		message = args.Message
+	} else {
+		message = candihelper.ToBytes(args.Data)
+	}
+
 	trace.SetTag("content-type", contentType)
 	trace.SetTag("topic", args.Topic)
 	trace.SetTag("key", args.Key)
-	trace.Log("data", args.Data)
+	trace.Log("message", message)
 
-	return s.conn.Send(args.Topic, contentType, candihelper.ToBytes(args.Data))
+	header := map[string]string{
+		StompEventID: uuid.NewString(),
+	}
+	trace.InjectRequestHeader(header)
+
+	var opts []func(*frame.Frame) error
+	for k, v := range header {
+		opts = append(opts, stomp.SendOpt.Header(k, v))
+	}
+
+	return s.conn.Send(
+		args.Topic, contentType, message, opts...,
+	)
 }

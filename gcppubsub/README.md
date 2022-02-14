@@ -83,6 +83,7 @@ import (
 
 	"example.service/pkg/shared/usecase"
 
+	"github.com/golangid/candi/candishared"
 	"github.com/golangid/candi/codebase/factory/types"
 	"github.com/golangid/candi/tracer"
 )
@@ -106,12 +107,12 @@ func (h *GCPPubSubHandler) MountHandlers(group *types.WorkerHandlerGroup) {
 	group.Add("example-topic", h.handleTopic) // consume topic "example-topic"
 }
 
-func (h *GCPPubSubHandler) handleTopic(ctx context.Context, message []byte) error {
-	trace, ctx := tracer.StartTraceWithContext(ctx, "DeliveryGCPPubSub:HandleTopic")
+func (h *GCPPubSubHandler) handleTopic(eventContext *candishared.EventContext) error {
+	trace, _ := tracer.StartTraceWithContext(eventContext.Context(), "DeliveryGCPPubSub:HandleTopic")
 	defer trace.Finish()
 
-	log.Printf("message attributes: %+v\n", gcppubsub.GetMessageAttributes(ctx))
-	log.Printf("message value: %s\n", message)
+	log.Printf("message attributes: %+v\n", eventContext.GetHeader())
+	log.Printf("message value: %s\n", eventContext.Message())
 	// call usecase
 	return nil
 }
@@ -180,9 +181,9 @@ func NewUsecase(deps dependency.Dependency) Usecase {
 
 func (uc *usecaseImpl) UsecaseToPublishMessage(ctx context.Context) error {
 	err := uc.gcpPublisher.PublishMessage(ctx, &candishared.PublisherArgument{
-		Topic:  "example-topic",
-		Data:   "hello world",
-		Header: map[string]interface{}{"key": "value"},
+		Topic:		"example-topic",
+		Message:	"hello world",
+		Header:		map[string]interface{}{"key": "value"},
 	})
 	return err
 }

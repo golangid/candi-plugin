@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/go-stomp/stomp/v3"
+	"github.com/golangid/candi/candishared"
 	"github.com/golangid/candi/codebase/factory"
 	"github.com/golangid/candi/codebase/factory/types"
 	"github.com/golangid/candi/logger"
@@ -18,25 +19,33 @@ type workerEngine struct {
 	ctx           context.Context
 	ctxCancelFunc func()
 
+	service    factory.ServiceFactory
 	channels   []reflect.SelectCase
 	semaphore  map[string]chan struct{}
 	shutdown   chan struct{}
 	isShutdown bool
 	wg         sync.WaitGroup
+	opt        option
 
 	conn     *stomp.Conn
 	handlers map[string]types.WorkerHandler
 }
 
 // NewSTOMPWorker create new stomp client worker for subscribe from queue
-func NewSTOMPWorker(service factory.ServiceFactory) factory.AppServerFactory {
+func NewSTOMPWorker(service factory.ServiceFactory, opts ...OptionFunc) factory.AppServerFactory {
 	if service.GetDependency().GetBroker(STOMPBroker) == nil {
 		panic("Missing STOMP configuration, make sure STOMP has been registered to broker in service config")
 	}
 
 	conn := service.GetDependency().GetBroker(STOMPBroker).GetConfiguration().(*stomp.Conn)
 	worker := &workerEngine{
-		conn: conn,
+		service: service,
+		conn:    conn,
+		opt:     getDefaultOption(),
+	}
+
+	for _, opt := range opts {
+		opt(&worker.opt)
 	}
 
 	worker.ctx, worker.ctxCancelFunc = context.WithCancel(context.Background())
@@ -130,13 +139,28 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 		return
 	}
 
+	eventID := msg.Header.Get(StompEventID)
+	if eventID != "" {
+		// lock for multiple worker (if running on multiple pods/instance)
+		if w.opt.locker.IsLocked(w.getLockKey(eventID)) {
+			return
+		}
+		defer w.opt.locker.Unlock(w.getLockKey(eventID))
+	}
+
 	ctx := w.ctx
 	selectedHandler := w.handlers[msg.Destination]
 	if selectedHandler.DisableTrace {
 		ctx = tracer.SkipTraceContext(ctx)
 	}
 
-	trace, ctx := tracer.StartTraceWithContext(w.ctx, "STOMPWorker")
+	header := map[string]string{}
+	for i := 0; i < msg.Header.Len(); i++ {
+		k, v := msg.Header.GetAt(i)
+		header[k] = v
+	}
+
+	trace, ctx := tracer.StartTraceFromHeader(w.ctx, "STOMPWorker", header)
 	defer func() {
 		if r := recover(); r != nil {
 			trace.SetError(fmt.Errorf("panic: %v", r))
@@ -146,6 +170,7 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 			msg.Conn.Ack(msg)
 		}
 		logger.LogGreen(w.Name() + " > trace_url: " + tracer.GetTraceURL(ctx))
+		trace.SetTag("trace_id", tracer.GetTraceID(ctx))
 		trace.Finish()
 	}()
 
@@ -154,12 +179,24 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 	trace.SetTag("broker", msg.Conn.Server())
 	trace.SetTag("destination", msg.Destination)
 	trace.SetTag("content-type", msg.ContentType)
-	tracer.Log(ctx, "message.body", string(msg.Body))
+	trace.Log("message.body", msg.Body)
 
-	if err := selectedHandler.HandlerFunc(ctx, msg.Body); err != nil {
-		if selectedHandler.ErrorHandler != nil {
-			selectedHandler.ErrorHandler(ctx, STOMPBroker, msg.Destination, msg.Body, err)
+	var eventContext candishared.EventContext
+	eventContext.SetContext(ctx)
+	eventContext.SetWorkerType(string(STOMPBroker))
+	eventContext.SetHandlerRoute(msg.Destination)
+	eventContext.SetHeader(header)
+	eventContext.SetKey(eventID)
+	eventContext.Write(msg.Body)
+
+	for _, handlerFunc := range selectedHandler.HandlerFuncs {
+		if err := handlerFunc(&eventContext); err != nil {
+			eventContext.SetError(err)
+			trace.SetError(err)
 		}
-		trace.SetError(err)
 	}
+}
+
+func (w *workerEngine) getLockKey(eventID string) string {
+	return fmt.Sprintf("%s:stomp-broker-lock:%s", w.service.Name(), eventID)
 }
