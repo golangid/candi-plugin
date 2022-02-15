@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/arangodb/go-driver"
 	"github.com/arangodb/go-driver/http"
-	"log"
+	"time"
 )
 
 type arangoInstance struct {
@@ -33,13 +33,13 @@ func (m *arangoInstance) Disconnect(ctx context.Context) (err error) {
 // InitArangoDB return mongo db read & write instance from environment:
 // ARANGODB_HOST_WRITE, ARANGODB_HOST_READ
 func InitArangoDB(ctx context.Context, dsnRead string, dsnWrite string) ArangoDatabase {
-	log.Print("Load ArangoDB connection...")
+	fmt.Printf("%s Load ArangoDB connection... ", time.Now().Format("2006/01/02 15:04:05"))
 	defer func() {
 		if rec := recover(); rec != nil {
-			log.Printf("\x1b[31;1mERROR: %v\x1b[0m\n", rec)
+			fmt.Printf("\x1b[31;1mERROR: %v\x1b[0m\n", rec)
 			panic(rec)
 		}
-		log.Print("\x1b[32;1mSUCCESS\x1b[0m")
+		fmt.Println("\x1b[32;1mSUCCESS\x1b[0m")
 	}()
 
 	env := parseArangoEnv(dsnRead, dsnWrite)
