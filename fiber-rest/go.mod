@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/gofiber/fiber/v2 v2.41.0
 	github.com/golangid/candi v1.13.13
-	github.com/opentracing/opentracing-go v1.2.0
 	github.com/valyala/fasthttp v1.43.0
 )
 
@@ -27,6 +26,7 @@ require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/soheilhy/cmux v0.1.5 // indirect

@@ -15,11 +15,11 @@ type fiberREST struct {
 }
 
 // NewFiberServer create new REST server
-func NewFiberServer(service factory.ServiceFactory, httpPort string, rootMiddleware ...func(*fiber.Ctx) error) factory.AppServerFactory {
+func NewFiberServer(service factory.ServiceFactory, httpPort int, rootMiddleware ...func(*fiber.Ctx) error) factory.AppServerFactory {
 	server := &fiberREST{
 		serverEngine: fiber.New(),
 		service:      service,
-		httpPort:     httpPort,
+		httpPort:     fmt.Sprintf(":%d", httpPort),
 	}
 
 	root := server.serverEngine.Group("/", rootMiddleware...)
