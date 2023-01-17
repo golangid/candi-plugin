@@ -40,7 +40,7 @@ func (s *fiberREST) Serve() {
 }
 
 func (s *fiberREST) Shutdown(ctx context.Context) {
-	// h.serverEngine.Shutdown()
+	s.serverEngine.Shutdown()
 }
 
 func (s *fiberREST) Name() string {
