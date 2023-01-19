@@ -4,11 +4,13 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 )
 
 type (
 	option struct {
 		fiberConfig     []fiber.Config
+		corsConfig      cors.Config
 		rootMiddlewares []func(*fiber.Ctx) error
 		rootHandler     func(*fiber.Ctx) error
 		httpPort        string
@@ -30,6 +32,7 @@ func getDefaultOption() *option {
 			c.Response().BodyWriter().Write([]byte("REST Server up and running"))
 			return nil
 		},
+		corsConfig: cors.Config{},
 	}
 }
 
@@ -79,5 +82,11 @@ func AddRootMiddlewares(middleware func(*fiber.Ctx) error) OptionFunc {
 func SetFiberConfig(cfg ...fiber.Config) OptionFunc {
 	return func(o *option) {
 		o.fiberConfig = cfg
+	}
+}
+
+func SetCorsConfig(cfg cors.Config) OptionFunc {
+	return func(o *option) {
+		o.corsConfig = cfg
 	}
 }
