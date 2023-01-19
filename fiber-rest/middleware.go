@@ -50,3 +50,13 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	FastHTTPSetContext(ctx, c.Context())
 	return c.Next()
 }
+
+func RecoverMiddleware(c *fiber.Ctx) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = NewHTTPResponse(http.StatusInternalServerError, fmt.Sprintf("panic: %v", r)).JSON(c.Response())
+		}
+	}()
+
+	return c.Next()
+}
