@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/golangid/candi/codebase/factory"
 )
 
@@ -27,6 +28,7 @@ func NewFiberServer(service factory.ServiceFactory, opts ...OptionFunc) factory.
 
 	server.serverEngine = fiber.New(server.opt.fiberConfig...)
 	server.serverEngine.Get("/", server.opt.rootHandler)
+	server.serverEngine.Use(cors.New(server.opt.corsConfig))
 	root := server.serverEngine.Group(server.opt.rootPath, server.opt.rootMiddlewares...)
 
 	for _, m := range service.GetModules() {
