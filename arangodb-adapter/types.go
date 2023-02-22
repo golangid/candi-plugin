@@ -29,7 +29,7 @@ func parseArangoEnv(dbReadDSN, dbWriteDSN string) ArangoDBEnv {
 	if err != nil {
 		panic(err)
 	}
-	arangoDBEnv.DbArangoWriteHost = write.Scheme + "://" + read.Host
+	arangoDBEnv.DbArangoWriteHost = write.Scheme + "://" + write.Host
 	arangoDBEnv.DbArangoWriteUser = write.User.Username()
 	arangoDBEnv.DbArangoWritePassword, _ = write.User.Password()
 	arangoDBEnv.DbArangoWriteDatabase = strings.Trim(write.Path, "/")
