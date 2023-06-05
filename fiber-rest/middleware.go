@@ -14,11 +14,6 @@ import (
 func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	operationName := fmt.Sprintf("%s %s%s", c.Method(), c.BaseURL(), c.Path())
 
-	netHTTPHeader := make(http.Header)
-	c.Request().Header.VisitAll(func(key, value []byte) {
-		netHTTPHeader.Set(string(key), string(value))
-	})
-
 	trace, ctx := tracer.StartTraceFromHeader(c.Context(), operationName, c.GetReqHeaders())
 	defer func() {
 		trace.Log("http.response_header", string(c.Response().Header.Header()))
