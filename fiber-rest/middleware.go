@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/adaptor"
+	"github.com/golangid/candi/candihelper"
 	"github.com/golangid/candi/config/env"
 	"github.com/golangid/candi/logger"
 	"github.com/golangid/candi/tracer"
@@ -12,7 +14,7 @@ import (
 
 // JaegerTracingMiddleware use jaeger tracing middleware
 func JaegerTracingMiddleware(c *fiber.Ctx) error {
-	operationName := fmt.Sprintf("%s %s%s", c.Method(), c.BaseURL(), c.Path())
+	operationName := fmt.Sprintf("%s %s", c.Method(), c.BaseURL())
 
 	trace, ctx := tracer.StartTraceFromHeader(c.Context(), operationName, c.GetReqHeaders())
 	defer func() {
@@ -20,20 +22,20 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 		trace.SetTag("http.response_code", c.Response().StatusCode())
 
 		resBody := c.Response().Body()
-		if len(resBody) < env.BaseEnv().JaegerMaxPacketSize { // limit response body size to 65000 bytes (if higher tracer cannot show root span)
+		if len(resBody) < env.BaseEnv().JaegerMaxPacketSize {
 			trace.Log("response.body", resBody)
 		} else {
-			trace.Log("response.body.size", resBody)
+			trace.Log("response.body.size", candihelper.TransformSizeToByte(uint64(len(resBody))))
 		}
 		trace.Finish()
 		logger.LogGreen("fiber_rest_api > trace_url: " + tracer.GetTraceURL(ctx))
 	}()
 
 	body := c.Body()
-	if len(body) < env.BaseEnv().JaegerMaxPacketSize { // limit request body size to 65000 bytes (if higher tracer cannot show root span)
+	if len(body) < env.BaseEnv().JaegerMaxPacketSize {
 		trace.Log("request.body", string(body))
 	} else {
-		trace.Log("request.body.size", len(body))
+		trace.Log("request.body.size", candihelper.TransformSizeToByte(uint64(len(body))))
 	}
 
 	trace.SetTag("http.engine", "fiber (fasthttp) version "+fiber.Version)
@@ -42,7 +44,7 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	trace.SetTag("http.full_url", c.OriginalURL())
 	trace.Log("http.request_header", string(c.Request().Header.RawHeaders()))
 
-	FastHTTPSetContext(ctx, c.Context())
+	adaptor.CopyContextToFiberContext(ctx, c.Context())
 	return c.Next()
 }
 
@@ -54,4 +56,13 @@ func RecoverMiddleware(c *fiber.Ctx) (err error) {
 	}()
 
 	return c.Next()
+}
+
+// WithChainingMiddlewares chaining middlewares
+func WithChainingMiddlewares(handlerFunc http.HandlerFunc, middlewares ...func(http.Handler) http.Handler) (fiberHandlers []fiber.Handler) {
+	for _, mw := range middlewares {
+		fiberHandlers = append(fiberHandlers, adaptor.HTTPMiddleware(mw))
+	}
+	fiberHandlers = append(fiberHandlers, WrapHTTPHandlerFunc(handlerFunc))
+	return fiberHandlers
 }
