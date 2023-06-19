@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/golangid/candi/candihelper"
 	graphqlserver "github.com/golangid/candi/codebase/app/graphql_server"
+	restserver "github.com/golangid/candi/codebase/app/rest_server"
 	"github.com/golangid/candi/codebase/factory"
 	"github.com/golangid/candi/config/env"
 	"github.com/golangid/candi/logger"
@@ -60,6 +61,8 @@ func NewFiberServer(service factory.ServiceFactory, opts ...OptionFunc) factory.
 		}
 		logger.LogGreen(fmt.Sprintf("[REST-ROUTE] %-6s %-30s", routes.Method, strings.TrimSuffix(routes.Path, "/")))
 	}
+
+	restserver.URLParam = URLParam
 
 	// inject graphql handler to rest server
 	if server.opt.includeGraphQL {
