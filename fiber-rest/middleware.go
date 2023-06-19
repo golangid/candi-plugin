@@ -14,8 +14,11 @@ import (
 
 // JaegerTracingMiddleware use jaeger tracing middleware
 func JaegerTracingMiddleware(c *fiber.Ctx) error {
-	operationName := fmt.Sprintf("%s %s", c.Method(), c.BaseURL())
+	if candihelper.StringInSlice(c.Path(), []string{"/", "/graphql"}) {
+		return c.Next()
+	}
 
+	operationName := fmt.Sprintf("%s %s", c.Method(), c.BaseURL())
 	trace, ctx := tracer.StartTraceFromHeader(c.Context(), operationName, c.GetReqHeaders())
 	defer func() {
 		trace.Log("http.response_header", string(c.Response().Header.Header()))
@@ -41,7 +44,7 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	trace.SetTag("http.engine", "fiber (fasthttp) version "+fiber.Version)
 	trace.SetTag("http.method", c.Method())
 	trace.SetTag("http.url_path", c.Path())
-	trace.SetTag("http.full_url", c.OriginalURL())
+	trace.Log("http.full_url", c.OriginalURL())
 	trace.Log("http.request_header", string(c.Request().Header.RawHeaders()))
 
 	adaptor.CopyContextToFiberContext(ctx, c.Context())

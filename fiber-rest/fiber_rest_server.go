@@ -38,11 +38,11 @@ func NewFiberServer(service factory.ServiceFactory, opts ...OptionFunc) factory.
 	server.serverEngine.Use(cors.New(server.opt.corsConfig))
 	root := server.serverEngine.Group(server.opt.rootPath, server.opt.rootMiddlewares...)
 
-	routeWrapper := &routeWrapper{router: root}
+	rw := &routeWrapper{router: root}
 	for _, m := range service.GetModules() {
 		// for default candi rest handler
 		if h := m.RESTHandler(); h != nil {
-			h.Mount(routeWrapper)
+			h.Mount(rw)
 		}
 
 		// additional if still using fiber routing
