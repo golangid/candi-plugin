@@ -18,6 +18,10 @@ const (
 	EchoREST types.Server = "echo-rest"
 )
 
+var (
+	MiddlewareExcludeURLPath = map[string]struct{}{"/": {}, "/graphql": {}, "/favicon.ico": {}}
+)
+
 type (
 	option struct {
 		rootMiddlewares     []echo.MiddlewareFunc
@@ -64,9 +68,12 @@ func getDefaultOption() option {
 				env.BaseEnv().CORSAllowMethods, env.BaseEnv().CORSAllowHeaders,
 				env.BaseEnv().CORSAllowOrigins, nil, env.BaseEnv().CORSAllowCredential,
 			)),
-			EchoWrapMiddleware(wrapper.HTTPMiddlewareTracer(wrapper.HTTPMiddlewareTracerConfig{
-				MaxLogSize:  env.BaseEnv().JaegerMaxPacketSize,
-				ExcludePath: map[string]struct{}{"/": {}, "/graphql": {}},
+			EchoWrapMiddleware(wrapper.HTTPMiddlewareTracer(wrapper.HTTPMiddlewareConfig{
+				MaxLogSize: env.BaseEnv().JaegerMaxPacketSize,
+				DisableFunc: func(r *http.Request) bool {
+					_, ok := MiddlewareExcludeURLPath[r.URL.Path]
+					return ok
+				},
 			})),
 			EchoLoggerMiddleware(env.BaseEnv().DebugMode, os.Stdout),
 		},
