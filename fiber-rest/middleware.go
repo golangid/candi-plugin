@@ -18,11 +18,11 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 		return c.Next()
 	}
 
-	operationName := fmt.Sprintf("%s %s", c.Method(), c.BaseURL())
+	operationName := "fasthttp.request"
 	trace, ctx := tracer.StartTraceFromHeader(c.Context(), operationName, c.GetReqHeaders())
 	defer func() {
 		trace.Log("http.response_header", string(c.Response().Header.Header()))
-		trace.SetTag("http.response_code", c.Response().StatusCode())
+		trace.SetTag("http.status_code", c.Response().StatusCode())
 
 		resBody := c.Response().Body()
 		if len(resBody) < env.BaseEnv().JaegerMaxPacketSize {
@@ -34,6 +34,9 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 		logger.LogGreen("fiber_rest_api > trace_url: " + tracer.GetTraceURL(ctx))
 	}()
 
+	r := c.Route()
+	trace.SetTag("resource.name", r.Method+" "+c.Path())
+
 	body := c.Body()
 	if len(body) < env.BaseEnv().JaegerMaxPacketSize {
 		trace.Log("request.body", string(body))
@@ -44,6 +47,9 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	trace.SetTag("http.engine", "fiber (fasthttp) version "+fiber.Version)
 	trace.SetTag("http.method", c.Method())
 	trace.SetTag("http.url_path", c.Path())
+	for key := range c.GetReqHeaders() {
+		trace.SetTag("http.headers."+key, c.Get(key))
+	}
 	trace.Log("http.full_url", c.OriginalURL())
 	trace.Log("http.request_header", string(c.Request().Header.RawHeaders()))
 
