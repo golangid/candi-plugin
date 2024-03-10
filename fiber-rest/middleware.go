@@ -8,7 +8,6 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/golangid/candi/candihelper"
 	"github.com/golangid/candi/config/env"
-	"github.com/golangid/candi/logger"
 	"github.com/golangid/candi/tracer"
 )
 
@@ -18,8 +17,11 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 		return c.Next()
 	}
 
-	operationName := "fasthttp.request"
-	trace, ctx := tracer.StartTraceFromHeader(c.Context(), operationName, c.GetReqHeaders())
+	headers := make(map[string]string)
+	c.Request().Header.VisitAll(func(key, value []byte) {
+		headers[string(key)] = string(value)
+	})
+	trace, ctx := tracer.StartTraceFromHeader(c.Context(), "fasthttp.request", headers)
 	defer func() {
 		trace.Log("http.response_header", string(c.Response().Header.Header()))
 		trace.SetTag("http.status_code", c.Response().StatusCode())
@@ -31,7 +33,6 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 			trace.Log("response.body.size", candihelper.TransformSizeToByte(uint64(len(resBody))))
 		}
 		trace.Finish()
-		logger.LogGreen("fiber_rest_api > trace_url: " + tracer.GetTraceURL(ctx))
 	}()
 
 	r := c.Route()

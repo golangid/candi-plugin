@@ -2,14 +2,12 @@ package fiberrest
 
 import (
 	"errors"
-	"net/http"
-	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/adaptor"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	graphqlserver "github.com/golangid/candi/codebase/app/graphql_server"
-	"github.com/golangid/candi/config/env"
 	"github.com/golangid/candi/wrapper"
 )
 
@@ -51,12 +49,7 @@ func getDefaultOption() *option {
 		rootMiddlewares: []func(*fiber.Ctx) error{
 			RecoverMiddleware,
 			JaegerTracingMiddleware,
-			adaptor.HTTPMiddleware(wrapper.HTTPMiddlewareLog(wrapper.HTTPMiddlewareConfig{
-				Writer: os.Stdout,
-				DisableFunc: func(r *http.Request) bool {
-					return !env.BaseEnv().DebugMode
-				},
-			})),
+			logger.New(),
 		},
 		rootHandler: adaptor.HTTPHandlerFunc(wrapper.HTTPHandlerDefaultRoot),
 		corsConfig:  cors.Config{},
