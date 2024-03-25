@@ -111,7 +111,7 @@ func (h *GCPPubSubHandler) handleTopic(eventContext *candishared.EventContext) e
 	trace, _ := tracer.StartTraceWithContext(eventContext.Context(), "DeliveryGCPPubSub:HandleTopic")
 	defer trace.Finish()
 
-	log.Printf("message attributes: %+v\n", eventContext.GetHeader())
+	log.Printf("message attributes: %+v\n", eventContext.Header())
 	log.Printf("message value: %s\n", eventContext.Message())
 	// call usecase
 	return nil
