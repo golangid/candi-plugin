@@ -1,6 +1,7 @@
 package gcppubsub
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log"
@@ -47,7 +48,7 @@ func NewPubSubWorker(service factory.ServiceFactory, subscriberID string) factor
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
 				topic := worker.createTopic(handler.Pattern)
-				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID+"_"+handler.Pattern, topic)
+				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID, topic)
 
 				logger.LogYellow(fmt.Sprintf(`[GCPPUBSUB-CONSUMER] (topic): %-15s  --> (module): "%s"`, `"`+handler.Pattern+`"`, m.Name()))
 				worker.handlers[handler.Pattern] = handler
@@ -157,7 +158,7 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 
 		log.Printf("\x1b[35;3mGCP PubSub Worker: consuming message from topic '%s'\x1b[0m", topic)
 
-		var eventContext candishared.EventContext
+		eventContext := candishared.NewEventContext(bytes.NewBuffer(make([]byte, 0, 256)))
 		eventContext.SetContext(ctx)
 		eventContext.SetWorkerType(string(GoogleCloudPubSub))
 		eventContext.SetHandlerRoute(topic)
@@ -166,7 +167,7 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 		eventContext.Write(msg.Data)
 
 		for _, handlerFunc := range selectedHandler.HandlerFuncs {
-			if err := handlerFunc(&eventContext); err != nil {
+			if err := handlerFunc(eventContext); err != nil {
 				eventContext.SetError(err)
 			}
 		}
