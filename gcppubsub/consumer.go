@@ -48,7 +48,7 @@ func NewPubSubWorker(service factory.ServiceFactory, subscriberID string) factor
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
 				topic := worker.createTopic(handler.Pattern)
-				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID, topic)
+				worker.subscribers[handler.Pattern] = worker.createSubscription(subscriberID+"_"+handler.Pattern, topic)
 
 				logger.LogYellow(fmt.Sprintf(`[GCPPUBSUB-CONSUMER] (topic): %-15s  --> (module): "%s"`, `"`+handler.Pattern+`"`, m.Name()))
 				worker.handlers[handler.Pattern] = handler
