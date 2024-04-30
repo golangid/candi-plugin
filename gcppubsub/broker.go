@@ -13,10 +13,17 @@ import (
 // BrokerOptionFunc func type
 type BrokerOptionFunc func(*Broker)
 
+// BrokerSetWorkerType set worker type
+func BrokerSetWorkerType(workerType types.Worker) BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.WorkerType = workerType
+	}
+}
+
 // BrokerSetClient set gcp client
 func BrokerSetClient(client *pubsub.Client) BrokerOptionFunc {
 	return func(bk *Broker) {
-		bk.client = client
+		bk.Client = client
 	}
 }
 
@@ -39,8 +46,9 @@ func InitDefaultClient(gcpProjectName, credentialPath string) *pubsub.Client {
 
 // Broker gcp pubsub broker
 type Broker struct {
-	client    *pubsub.Client
-	publisher interfaces.Publisher
+	WorkerType types.Worker
+	Client     *pubsub.Client
+	publisher  interfaces.Publisher
 }
 
 // NewGCPPubSubBroker setup gcp pubsub broker for publisher or consumer
@@ -48,21 +56,18 @@ func NewGCPPubSubBroker(opts ...BrokerOptionFunc) *Broker {
 	deferFunc := logger.LogWithDefer("Load GCP PubSub broker configuration... ")
 	defer deferFunc()
 
-	gcpPubSubBroker := &Broker{}
+	gcpPubSubBroker := &Broker{
+		WorkerType: GoogleCloudPubSub,
+	}
 	for _, opt := range opts {
 		opt(gcpPubSubBroker)
 	}
 
 	if gcpPubSubBroker.publisher == nil {
-		gcpPubSubBroker.publisher = NewPublisher(gcpPubSubBroker.client)
+		gcpPubSubBroker.publisher = NewPublisher(gcpPubSubBroker.Client)
 	}
 
 	return gcpPubSubBroker
-}
-
-// GetConfiguration method
-func (g *Broker) GetConfiguration() interface{} {
-	return g.client
 }
 
 // GetPublisher method
@@ -90,5 +95,5 @@ func (g *Broker) Disconnect(ctx context.Context) error {
 	deferFunc := logger.LogWithDefer("gcp pubsub: disconnect...")
 	defer deferFunc()
 
-	return g.client.Close()
+	return g.Client.Close()
 }

@@ -36,38 +36,28 @@ func LoadServiceConfigs(baseCfg *config.Config) (deps dependency.Dependency) {
 }
 ```
 
-### Add in service.go
+### Init worker in app_factory.go for consume message
 
-File `internal/service.go` in your service
+File `configs/app_factory.go` in your service
 
 ```go
-package service
+package configs
 
 import (
-    "github.com/golangid/candi-plugin/gcppubsub"
-...
+	"github.com/golangid/candi-plugin/gcppubsub"
+	"github.com/golangid/candi/codebase/factory"
+	"github.com/golangid/candi/codebase/factory/appfactory"
+	"github.com/golangid/candi/config/env"
+)
 
-// Service model
-type Service struct {
-	applications []factory.AppServerFactory
-...
+func InitAppFromEnvironmentConfig(service factory.ServiceFactory) (apps []factory.AppServerFactory) {
 
-// NewService in this service
-func NewService(cfg *config.Config) factory.ServiceFactory {
 	...
 
-	s := &Service{
-        ...
 
-    // Add custom application runner, must implement `factory.AppServerFactory` methods
-	s.applications = append(s.applications, []factory.AppServerFactory{
-		// customApplication
-		gcppubsub.NewPubSubWorker(s, "[your-consumer-group-id]"),
-	}...)
-
-    ...
+	apps = append(apps, gcppubsub.NewPubSubWorker(service, service.GetDependency().GetBroker(gcppubsub.GoogleCloudPubSub), "[your-consumer/subscriber-group-id]"))
+	return
 }
-...
 ```
 
 ### Create delivery handler
@@ -170,17 +160,17 @@ import (
 )
 
 type usecaseImpl {
-	gcpPublisher interfaces.Publisher
+	deps dependency.Dependency
 }
 
 func NewUsecase(deps dependency.Dependency) Usecase {
 	return &usecaseImpl{
-		gcpPublisher: deps.GetBroker(gcppubsub.GoogleCloudPubSub).GetPublisher(),
+		deps: deps,
 	}
 }
 
 func (uc *usecaseImpl) UsecaseToPublishMessage(ctx context.Context) error {
-	err := uc.gcpPublisher.PublishMessage(ctx, &candishared.PublisherArgument{
+	err := uc.deps.GetBroker(gcppubsub.GoogleCloudPubSub).GetPublisher().PublishMessage(ctx, &candishared.PublisherArgument{
 		Topic:		"example-topic",
 		Message:	"hello world",
 		Header:		map[string]interface{}{"key": "value"},
