@@ -22,7 +22,7 @@ Can be used for AMQ Consumer
 ## [Fiber REST Server](https://github.com/golangid/candi-plugin/tree/master/fiber-rest)
 
 <p align="center">
-<img src="https://raw.githubusercontent.com/gofiber/docs/master/static/fiber_v2_logo.svg" width="150" alt="go fiber" />
+<img src="https://raw.githubusercontent.com/gofiber/docs/master/static/img/logo.svg" width="150" alt="go fiber" />
 </p>
 
 Fiber web Framework (https://gofiber.io)
