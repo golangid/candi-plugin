@@ -151,6 +151,9 @@ func (w *workerEngine) processMessage(ctx context.Context, topic string, msg *pu
 			}),
 		)
 
+		if w.bk.WorkerType != GoogleCloudPubSub {
+			trace.SetTag("worker_type", string(w.bk.WorkerType))
+		}
 		trace.SetTag("topic", topic)
 		trace.Log("attributes", msg.Attributes)
 		trace.Log("body", msg.Data)

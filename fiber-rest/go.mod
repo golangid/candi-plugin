@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/gofiber/fiber/v2 v2.52.4
-	github.com/golangid/candi v1.17.4
+	github.com/golangid/candi v1.17.5
 	github.com/valyala/fasthttp v1.52.0
 )
 
