@@ -16,7 +16,7 @@ type BrokerOptionFunc func(*Broker)
 // BrokerSetConn set stomp connection
 func BrokerSetConn(conn *stomp.Conn) BrokerOptionFunc {
 	return func(bk *Broker) {
-		bk.conn = conn
+		bk.Conn = conn
 	}
 }
 
@@ -42,17 +42,20 @@ func InitDefaultConnection(broker, username, password string) *stomp.Conn {
 }
 
 // NewSTOMPBroker setup STOMP broker for publisher or consumer
-func NewSTOMPBroker(opts ...BrokerOptionFunc) *Broker {
+func NewSTOMPBroker(conn *stomp.Conn, opts ...BrokerOptionFunc) *Broker {
 	deferFunc := logger.LogWithDefer("Load STOMP broker configuration... ")
 	defer deferFunc()
 
-	stompBroker := &Broker{}
+	stompBroker := &Broker{
+		WorkerType: STOMPBroker,
+		Conn:       conn,
+	}
 	for _, opt := range opts {
 		opt(stompBroker)
 	}
 
 	if stompBroker.publisher == nil {
-		stompBroker.publisher = NewPublisher(stompBroker.conn)
+		stompBroker.publisher = NewPublisher(stompBroker.Conn)
 	}
 
 	return stompBroker
@@ -60,13 +63,9 @@ func NewSTOMPBroker(opts ...BrokerOptionFunc) *Broker {
 
 // Broker stomp
 type Broker struct {
-	conn      *stomp.Conn
-	publisher interfaces.Publisher
-}
-
-// GetConfiguration method
-func (s *Broker) GetConfiguration() interface{} {
-	return s.conn
+	WorkerType types.Worker
+	Conn       *stomp.Conn
+	publisher  interfaces.Publisher
 }
 
 // GetPublisher method

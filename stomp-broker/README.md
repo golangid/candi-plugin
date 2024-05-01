@@ -25,45 +25,35 @@ func LoadServiceConfigs(baseCfg *config.Config) (deps dependency.Dependency) {
 		brokerDeps := broker.InitBrokers(
 			// another broker,
 			// ...
-			stompbroker.SetSTOMPBroker(stompbroker.InitDefaultConnection("[broker host]", "[username]", "[password]")),
+			stompbroker.NewSTOMPBroker(stompbroker.InitDefaultConnection("[broker host]", "[username]", "[password]")),
 		)
 
 		... 
 }
 ```
 
-### Add in service.go
+### Init worker in app_factory.go for consume message
 
-File `internal/service.go` in your service
+File `configs/app_factory.go` in your service
 
 ```go
-package service
+package configs
 
 import (
-    "github.com/golangid/candi-plugin/stomp-broker"
-...
+	"github.com/golangid/candi-plugin/stomp-broker"
+	"github.com/golangid/candi/codebase/factory"
+	"github.com/golangid/candi/codebase/factory/appfactory"
+	"github.com/golangid/candi/config/env"
+)
 
-// Service model
-type Service struct {
-	applications []factory.AppServerFactory
-...
+func InitAppFromEnvironmentConfig(service factory.ServiceFactory) (apps []factory.AppServerFactory) {
 
-// NewService in this service
-func NewService(cfg *config.Config) factory.ServiceFactory {
 	...
 
-	s := &Service{
-        ...
 
-    // Add custom application runner, must implement `factory.AppServerFactory` methods
-	s.applications = append(s.applications, []factory.AppServerFactory{
-		// customApplication
-		stompbroker.NewSTOMPWorker(s),
-	}...)
-
-    ...
+	apps = append(apps, stompbroker.NewSTOMPWorker(service, service.GetDependency().GetBroker(stompbroker.STOMPBroker)))
+	return
 }
-...
 ```
 
 ### Create delivery handler

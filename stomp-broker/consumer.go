@@ -11,6 +11,7 @@ import (
 	"github.com/golangid/candi/candishared"
 	"github.com/golangid/candi/codebase/factory"
 	"github.com/golangid/candi/codebase/factory/types"
+	"github.com/golangid/candi/codebase/interfaces"
 	"github.com/golangid/candi/logger"
 	"github.com/golangid/candi/tracer"
 )
@@ -27,20 +28,20 @@ type workerEngine struct {
 	wg         sync.WaitGroup
 	opt        option
 
-	conn     *stomp.Conn
+	bk       *Broker
 	handlers map[string]types.WorkerHandler
 }
 
 // NewSTOMPWorker create new stomp client worker for subscribe from queue
-func NewSTOMPWorker(service factory.ServiceFactory, opts ...OptionFunc) factory.AppServerFactory {
-	if service.GetDependency().GetBroker(STOMPBroker) == nil {
-		panic("Missing STOMP configuration, make sure STOMP has been registered to broker in service config")
+func NewSTOMPWorker(service factory.ServiceFactory, broker interfaces.Broker, opts ...OptionFunc) factory.AppServerFactory {
+	stompBk, ok := broker.(*Broker)
+	if !ok {
+		panic("Missing STOMP broker, make sure STOMP has been registered to broker in service config")
 	}
 
-	conn := service.GetDependency().GetBroker(STOMPBroker).GetConfiguration().(*stomp.Conn)
 	worker := &workerEngine{
 		service: service,
-		conn:    conn,
+		bk:      stompBk,
 		opt:     getDefaultOption(),
 	}
 
@@ -54,21 +55,24 @@ func NewSTOMPWorker(service factory.ServiceFactory, opts ...OptionFunc) factory.
 	worker.semaphore = make(map[string]chan struct{})
 
 	for _, m := range service.GetModules() {
-		if h := m.WorkerHandler(STOMPBroker); h != nil {
+		if h := m.WorkerHandler(worker.bk.WorkerType); h != nil {
 			var handlerGroup types.WorkerHandlerGroup
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
 				if _, ok := worker.handlers[handler.Pattern]; ok {
-					panic(fmt.Errorf("STOMP Worker: warning, topic %s has been used in another module, overwrite handler func", handler.Pattern))
+					log.Panicf("STOMP Worker%s: warning, topic %s has been used in another module, overwrite handler func",
+						getWorkerTypeLog(worker.bk.WorkerType), handler.Pattern)
 				}
 
 				worker.handlers[handler.Pattern] = handler
-				sub, err := conn.Subscribe(handler.Pattern, stomp.AckClient)
+				sub, err := worker.bk.Conn.Subscribe(handler.Pattern, stomp.AckClient)
 				if err != nil {
-					panic(fmt.Errorf("STOMP: cannot subscribe to %s: %s", handler.Pattern, err.Error()))
+					log.Panicf("STOMP%s: cannot subscribe to %s: %s", getWorkerTypeLog(worker.bk.WorkerType), handler.Pattern, err.Error())
 				}
 
-				logger.LogYellow(fmt.Sprintf("[STOMP-WORKER] (topic): %-8s  (consumed by module)--> [%s]", handler.Pattern, m.Name()))
+				logger.LogYellow(fmt.Sprintf("[STOMP-WORKER]%s (topic): %-8s  (consumed by module)--> [%s]",
+					getWorkerTypeLog(worker.bk.WorkerType), handler.Pattern, m.Name()))
+
 				worker.channels = append(worker.channels, reflect.SelectCase{
 					Dir: reflect.SelectRecv, Chan: reflect.ValueOf(sub.C),
 				})
@@ -77,12 +81,12 @@ func NewSTOMPWorker(service factory.ServiceFactory, opts ...OptionFunc) factory.
 		}
 	}
 
-	fmt.Printf("\x1b[34;1m⇨ STOMP worker running with %d topics. Broker: %s\x1b[0m\n\n", len(worker.handlers), conn.Server())
+	fmt.Printf("\x1b[34;1m⇨ STOMP worker%s running with %d topics. Broker: %s\x1b[0m\n\n",
+		getWorkerTypeLog(worker.bk.WorkerType), len(worker.handlers), worker.bk.Conn.Server())
 	return worker
 }
 
 func (w *workerEngine) Serve() {
-
 	for {
 		select {
 		case <-w.shutdown:
@@ -113,8 +117,10 @@ func (w *workerEngine) Serve() {
 }
 
 func (w *workerEngine) Shutdown(ctx context.Context) {
-	log.Println("\x1b[33;1mStopping STOMP Worker...\x1b[0m")
-	defer func() { log.Println("\x1b[33;1mStopping STOMP Worker:\x1b[0m \x1b[32;1mSUCCESS\x1b[0m") }()
+	log.Printf("\x1b[33;1mStopping STOMP Worker%s...\x1b[0m\n", getWorkerTypeLog(w.bk.WorkerType))
+	defer func() {
+		log.Printf("\x1b[33;1mStopping STOMP Worker%s:\x1b\n \x1b[32;1mSUCCESS\x1b[0m\n", getWorkerTypeLog(w.bk.WorkerType))
+	}()
 
 	w.shutdown <- struct{}{}
 	w.isShutdown = true
@@ -123,14 +129,14 @@ func (w *workerEngine) Shutdown(ctx context.Context) {
 		runningJob += len(sem)
 	}
 	if runningJob != 0 {
-		fmt.Printf("\x1b[34;1mSTOMP Worker:\x1b[0m waiting %d job until done...\x1b[0m\n", runningJob)
+		fmt.Printf("\x1b[34;1mSTOMP Worker%s:\x1b[0m waiting %d job until done...\x1b[0m\n", getWorkerTypeLog(w.bk.WorkerType), runningJob)
 	}
 
 	w.wg.Wait()
 }
 
 func (w *workerEngine) Name() string {
-	return string(STOMPBroker)
+	return string(w.bk.WorkerType)
 }
 
 func (w *workerEngine) processMessage(msg *stomp.Message) {
@@ -174,8 +180,13 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 		trace.Finish()
 	}()
 
-	log.Printf("\x1b[35;3mSTOMP Worker: consuming message from '%s'\x1b[0m", msg.Destination)
+	if w.opt.debugMode {
+		log.Printf("\x1b[35;3mSTOMP Worker%s: consuming message from '%s'\x1b[0m\n", getWorkerTypeLog(w.bk.WorkerType), msg.Destination)
+	}
 
+	if w.bk.WorkerType != STOMPBroker {
+		trace.SetTag("worker_type", string(w.bk.WorkerType))
+	}
 	trace.SetTag("broker", msg.Conn.Server())
 	trace.SetTag("destination", msg.Destination)
 	trace.SetTag("content-type", msg.ContentType)
@@ -183,7 +194,7 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 
 	var eventContext candishared.EventContext
 	eventContext.SetContext(ctx)
-	eventContext.SetWorkerType(string(STOMPBroker))
+	eventContext.SetWorkerType(w.Name())
 	eventContext.SetHandlerRoute(msg.Destination)
 	eventContext.SetHeader(header)
 	eventContext.SetKey(eventID)
@@ -199,4 +210,11 @@ func (w *workerEngine) processMessage(msg *stomp.Message) {
 
 func (w *workerEngine) getLockKey(eventID string) string {
 	return fmt.Sprintf("%s:stomp-broker-lock:%s", w.service.Name(), eventID)
+}
+
+func getWorkerTypeLog(name types.Worker) (workerType string) {
+	if name != STOMPBroker {
+		workerType = " [worker_type: " + string(name) + "]"
+	}
+	return
 }

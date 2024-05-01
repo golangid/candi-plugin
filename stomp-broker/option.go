@@ -1,10 +1,13 @@
 package stompbroker
 
-import "github.com/golangid/candi/candiutils"
+import (
+	"github.com/golangid/candi/candiutils"
+	"github.com/golangid/candi/codebase/interfaces"
+)
 
 type (
 	option struct {
-		locker    candiutils.Locker
+		locker    interfaces.Locker
 		debugMode bool
 	}
 
@@ -27,7 +30,7 @@ func SetDebugMode(debugMode bool) OptionFunc {
 }
 
 // SetLocker option func
-func SetLocker(locker candiutils.Locker) OptionFunc {
+func SetLocker(locker interfaces.Locker) OptionFunc {
 	return func(o *option) {
 		o.locker = locker
 	}
