@@ -4,7 +4,7 @@ go 1.21
 
 require (
 	github.com/go-stomp/stomp/v3 v3.1.0
-	github.com/golangid/candi v1.17.5
+	github.com/golangid/candi v1.17.6
 	github.com/google/uuid v1.6.0
 )
 
@@ -37,5 +37,5 @@ require (
 	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240415180920-8c6c420018be // indirect
 	google.golang.org/grpc v1.63.2 // indirect
-	google.golang.org/protobuf v1.33.0 // indirect
+	google.golang.org/protobuf v1.34.0 // indirect
 )
