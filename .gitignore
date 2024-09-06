@@ -1,1 +1,4 @@
 example/
+/oracledb-adaptor/.idea/
+/.idea
+.DS_Store
