@@ -34,3 +34,12 @@ Simple P2P using UDP network (experimental)
 ## [ArangoDB Adapter](https://github.com/golangid/candi-plugin/tree/master/arango-adapter)
 
 ArangoDB
+<p align="center">
+<img src="https://cdn.worldvectorlogo.com/logos/arangodb.svg" width="150" alt="Arango DB" />
+</p>
+
+## [OracleDB Adaptor](https://github.com/golangid/candi-plugin/tree/master/oracledb-adaptor)
+
+<p align="center">
+<img src="https://newrelic.com/sites/default/files/quickstarts/images/icons/oracledb--logo.svg" width="150" alt="Oracle DB" />
+</p>
