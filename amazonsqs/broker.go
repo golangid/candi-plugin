@@ -3,6 +3,7 @@ package amazonsqs
 import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/golangid/candi/codebase/factory/types"
 	"github.com/golangid/candi/codebase/interfaces"
@@ -28,7 +29,8 @@ func BrokerSetPublisher(pub interfaces.Publisher) BrokerOptionFunc {
 
 // InitDefaultConnection amazonsqs
 func InitDefaultConnection(accessKeyID, secretAccessKey, region string) *sqs.Client {
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-west-2"))
+	cred := credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithCredentialsProvider(cred))
 	if err != nil {
 		panic(err)
 	}
