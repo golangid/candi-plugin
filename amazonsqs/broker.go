@@ -3,7 +3,6 @@ package amazonsqs
 import (
 	"context"
 	"github.com/aws/aws-sdk-go-v2/config"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/golangid/candi/codebase/factory/types"
 	"github.com/golangid/candi/codebase/interfaces"
@@ -28,17 +27,14 @@ func BrokerSetPublisher(pub interfaces.Publisher) BrokerOptionFunc {
 }
 
 // InitDefaultConnection amazonsqs
-func InitDefaultConnection(accessKeyID, secretAccessKey, region string) *sqs.Client {
-	cred := credentials.NewStaticCredentialsProvider(accessKeyID, secretAccessKey, "")
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region), config.WithCredentialsProvider(cred))
+func InitDefaultConnection(options ...func(*config.LoadOptions) error) *sqs.Client {
+	// Load AWS configuration with the provided options
+	cfg, err := config.LoadDefaultConfig(context.TODO(), options...)
 	if err != nil {
 		panic(err)
 	}
 
-	// Create an SQS client
-	sqsClient := sqs.NewFromConfig(cfg)
-
-	return sqsClient
+	return sqs.NewFromConfig(cfg)
 }
 
 // NewAmazonSQSBroker setup AmazonSQS broker for publisher or consumer
