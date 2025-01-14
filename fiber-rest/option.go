@@ -36,7 +36,7 @@ func defaultErrHandler(ctx *fiber.Ctx, err error) error {
 	if errors.As(err, &e) {
 		code = e.Code
 	}
-	return ctx.JSON(wrapper.HTTPResponse{
+	return ctx.Status(code).JSON(wrapper.HTTPResponse{
 		Code: code, Success: false, Message: err.Error(),
 	})
 }
