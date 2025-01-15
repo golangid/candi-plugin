@@ -46,7 +46,7 @@ func JaegerTracingMiddleware(c *fiber.Ctx) error {
 	}
 
 	trace.SetTag("http.engine", "fiber (fasthttp) version "+fiber.Version)
-	trace.SetTag("http.method", c.Method())
+	trace.SetTag("http.method", r.Method)
 	trace.SetTag("http.url_path", c.Path())
 	for key := range c.GetReqHeaders() {
 		trace.SetTag("http.headers."+key, c.Get(key))
