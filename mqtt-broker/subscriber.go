@@ -27,9 +27,15 @@ type workerEngine struct {
 	wg            sync.WaitGroup
 	shutdown      chan struct{}
 
+	handlers []handlerConfig
 	broker   *Broker
-	handlers map[string]types.WorkerHandler
 	opt      option
+	router   *router
+}
+
+type handlerConfig struct {
+	topic string
+	qos   byte
 }
 
 // NewMQTTSubscriber construct mqtt consumer
@@ -42,10 +48,10 @@ func NewMQTTSubscriber(service factory.ServiceFactory, broker interfaces.Broker,
 	worker := new(workerEngine)
 	worker.ctx, worker.ctxCancelFunc = context.WithCancel(context.Background())
 	worker.broker = mqttBroker
-	worker.handlers = make(map[string]types.WorkerHandler)
 	worker.semaphore = make(map[string]chan struct{})
 	worker.shutdown = make(chan struct{})
 	worker.opt = getDefaultOption()
+	worker.router = &router{root: newRouteNode()}
 	for _, opt := range opts {
 		opt(&worker.opt)
 	}
@@ -56,7 +62,15 @@ func NewMQTTSubscriber(service factory.ServiceFactory, broker interfaces.Broker,
 			h.MountHandlers(&handlerGroup)
 			for _, handler := range handlerGroup.Handlers {
 				logger.LogYellow(fmt.Sprintf(`[MQTT-SUBSCRIBER]%s (topic): %-15s  --> (module): "%s"`, getWorkerTypeLog(mqttBroker.WorkerType), `"`+handler.Pattern+`"`, m.Name()))
-				worker.handlers[handler.Pattern] = handler
+
+				qos, ok := handler.Configs[ConfigHeaderQOS].(byte)
+				if !ok {
+					qos = mqttBroker.subscriberQOS
+				}
+				worker.handlers = append(worker.handlers, handlerConfig{
+					topic: worker.router.addRoute(handler.Pattern, handler),
+					qos:   qos,
+				})
 				worker.semaphore[handler.Pattern] = make(chan struct{}, 1)
 			}
 		}
@@ -67,12 +81,8 @@ func NewMQTTSubscriber(service factory.ServiceFactory, broker interfaces.Broker,
 }
 
 func (w *workerEngine) Serve() {
-	for topic, handler := range w.handlers {
-		qos, ok := handler.Configs[ConfigHeaderQOS].(byte)
-		if !ok {
-			qos = w.broker.subscriberQOS
-		}
-		w.broker.client.Subscribe(topic, qos, w.processMessage)
+	for _, handler := range w.handlers {
+		w.broker.client.Subscribe(handler.topic, handler.qos, w.processMessage)
 	}
 	<-w.shutdown
 }
@@ -95,12 +105,8 @@ func (w *workerEngine) Name() string {
 }
 
 func (w *workerEngine) onConnect(c mqtt.Client) {
-	for topic, handler := range w.handlers {
-		qos, ok := handler.Configs[ConfigHeaderQOS].(byte)
-		if !ok {
-			qos = 1
-		}
-		c.Subscribe(topic, qos, w.processMessage)
+	for _, handler := range w.handlers {
+		c.Subscribe(handler.topic, handler.qos, w.processMessage)
 	}
 }
 
@@ -111,7 +117,7 @@ func (w *workerEngine) processMessage(_ mqtt.Client, m mqtt.Message) {
 	}
 
 	ctx := w.ctx
-	selectedHandler := w.handlers[m.Topic()]
+	selectedHandler, params := w.router.match(m.Topic())
 	if selectedHandler.DisableTrace {
 		ctx = tracer.SkipTraceContext(ctx)
 	}
@@ -134,6 +140,7 @@ func (w *workerEngine) processMessage(_ mqtt.Client, m mqtt.Message) {
 		trace.SetTag("worker_type", string(w.broker.WorkerType))
 	}
 	trace.SetTag("topic", m.Topic())
+	trace.Log("params", params)
 	trace.Log("body", m.Payload())
 
 	if w.opt.debugMode {
@@ -146,6 +153,7 @@ func (w *workerEngine) processMessage(_ mqtt.Client, m mqtt.Message) {
 	eventContext.SetHandlerRoute(m.Topic())
 	eventContext.SetKey(strconv.Itoa(int(m.MessageID())))
 	eventContext.Write(m.Payload())
+	eventContext.SetHeader(params) // todo move to context value
 
 	for _, handlerFunc := range selectedHandler.HandlerFuncs {
 		if err = handlerFunc(eventContext); err != nil {
