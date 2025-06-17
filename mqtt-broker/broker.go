@@ -41,6 +41,13 @@ func BrokerSetPublisherQOS(qos byte) BrokerOptionFunc {
 	}
 }
 
+// BrokerSetMessageRetain set retain to true
+func BrokerSetMessageRetain() BrokerOptionFunc {
+	return func(bk *Broker) {
+		bk.retain = true
+	}
+}
+
 // Broker MQTT broker
 type Broker struct {
 	WorkerType types.Worker
@@ -49,6 +56,7 @@ type Broker struct {
 	publisher     interfaces.Publisher
 	subscriberQOS byte
 	publisherQOS  byte
+	retain        bool
 }
 
 // NewMQTTBroker setup mqtt broker for publisher or consumer
@@ -61,6 +69,7 @@ func NewMQTTBroker(clientOpts *mqtt.ClientOptions, opts ...BrokerOptionFunc) *Br
 		client:        mqtt.NewClient(clientOpts),
 		subscriberQOS: 2,
 		publisherQOS:  2,
+		retain:        false,
 	}
 	for _, opt := range opts {
 		opt(bk)
@@ -72,7 +81,7 @@ func NewMQTTBroker(clientOpts *mqtt.ClientOptions, opts ...BrokerOptionFunc) *Br
 		panic(err)
 	}
 	if bk.publisher == nil {
-		bk.publisher = NewPublisher(bk.client, bk.publisherQOS, false)
+		bk.publisher = NewPublisher(bk.client, bk.publisherQOS, bk.retain)
 	}
 
 	return bk
