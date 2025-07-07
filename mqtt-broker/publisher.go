@@ -2,6 +2,7 @@ package mqttbroker
 
 import (
 	"context"
+	"strings"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/golangid/candi/candihelper"
@@ -26,6 +27,17 @@ func NewPublisher(client mqtt.Client, defaultQOS byte, retain bool) interfaces.P
 func (p *publisher) PublishMessage(ctx context.Context, args *candishared.PublisherArgument) (err error) {
 	trace, ctx := tracer.StartTraceWithContext(ctx, "MQTTBroker:PublishMessage")
 	defer trace.Finish()
+
+	opReader := p.client.OptionsReader()
+	var brokers []string
+	for _, u := range opReader.Servers() {
+		brokers = append(brokers, u.String())
+	}
+	trace.SetTag("brokers", strings.Join(brokers, ","))
+	trace.SetTag("topic", args.Topic)
+	trace.SetTag("key", args.Key)
+	trace.Log("header", args.Header)
+	trace.Log("message", args.Message)
 
 	var msg []byte
 	if len(args.Message) > 0 {

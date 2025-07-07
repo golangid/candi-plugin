@@ -136,12 +136,22 @@ func (w *workerEngine) processMessage(_ mqtt.Client, m mqtt.Message) {
 		w.wg.Done()
 	}()
 
+	opReader := w.broker.client.OptionsReader()
+	var brokers []string
+	for _, u := range opReader.Servers() {
+		brokers = append(brokers, u.String())
+	}
+	trace.SetTag("brokers", strings.Join(brokers, ","))
+	trace.SetTag("qos", m.Qos())
+	trace.SetTag("retained", m.Retained())
+	trace.SetTag("client_id", opReader.ClientID())
+	trace.Log("message_id", m.MessageID())
 	if w.broker.WorkerType != MQTTBroker {
 		trace.SetTag("worker_type", string(w.broker.WorkerType))
 	}
 	trace.SetTag("topic", m.Topic())
 	trace.Log("params", params)
-	trace.Log("body", m.Payload())
+	trace.Log("message", m.Payload())
 
 	if w.opt.debugMode {
 		log.Printf("\x1b[35;3mMQTT Subscriber%s: consuming message from topic '%s'\x1b[0m", getWorkerTypeLog(w.broker.WorkerType), m.Topic())
