@@ -2,6 +2,8 @@ package amazonsqs
 
 import (
 	"context"
+	"sync"
+
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
 	"github.com/golangid/candi/codebase/factory/types"
@@ -59,14 +61,20 @@ func NewAmazonSQSBroker(client *sqs.Client, opts ...BrokerOptionFunc) *Broker {
 
 // Broker amazonsqs
 type Broker struct {
-	WorkerType types.Worker
-	Client     *sqs.Client
-	publisher  interfaces.Publisher
+	WorkerType    types.Worker
+	Client        *sqs.Client
+	publisher     interfaces.Publisher
+	queueURLCache sync.Map
 }
 
 // GetPublisher method
 func (s *Broker) GetPublisher() interfaces.Publisher {
 	return s.publisher
+}
+
+// resolveQueueURL resolve queue name (or url) into queue url, with cache
+func (s *Broker) resolveQueueURL(ctx context.Context, topic string) (string, error) {
+	return resolveQueueURL(ctx, s.Client, &s.queueURLCache, topic)
 }
 
 // GetName method
